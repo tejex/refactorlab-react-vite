@@ -4,15 +4,26 @@ export const sourceExtensions = new Set<SourceExtension>([".html", ".js", ".css"
 
 export const ignoredDirs = new Set([
   ".git",
+  ".github",
+  ".cache",
+  ".parcel-cache",
+  ".turbo",
+  ".vercel",
   "node_modules",
   "dist",
   "build",
+  "coverage",
   ".next",
+  "out",
   ".vite",
+  "vendor",
   "assets",
   "images",
+  "img",
+  "fonts",
   "generated",
   "brand-references",
+  "__MACOSX",
 ]);
 
 export const sideEffectPatterns: PatternCounter[] = [

@@ -1,26 +1,162 @@
 import { useState } from "react";
-import { HowItWorks } from "./components/HowItWorks";
+import { AuthPanel } from "./components/AuthPanel";
+import { ExtractionMapPage } from "./components/ExtractionMapPage";
+import { MarketingHome } from "./components/MarketingHome";
+import { PricingPage } from "./components/PricingPage";
 import { ReportPanel } from "./components/ReportPanel";
 import { ScanPanel } from "./components/ScanPanel";
-import { Topbar } from "./components/Topbar";
-import { analyzeProject } from "./scanner/analyzeProject";
+import { type AppView, Topbar } from "./components/Topbar";
+import { useAuthSession } from "./hooks/useAuthSession";
+import { analyzeStaticZip, type ProcessingStep } from "./scanner/clientStaticAnalyzer";
 import type { ProjectReport, SourceType } from "./scanner/types";
 
 export default function App() {
-  const [report, setReport] = useState<ProjectReport | null>(null);
+  const { isLoading, user } = useAuthSession();
+  const [activeView, setActiveView] = useState<AppView>(() => (window.location.hash === "#extraction-map" ? "extraction-map" : "home"));
+  const [report, setReport] = useState<ProjectReport | null>(() => readStoredReport());
+  const [error, setError] = useState<string | null>(null);
+  const [scanLogs, setScanLogs] = useState<string[]>([]);
+  const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([]);
 
-  function runScan(sourceName: string, sourceType: SourceType) {
-    setReport(analyzeProject({ sourceName, sourceType }));
+  function appendLog(message: string) {
+    setScanLogs((logs) => [...logs, `${new Date().toLocaleTimeString()} ${message}`]);
+  }
+
+  async function runScan(sourceName: string, sourceType: SourceType) {
+    setError(null);
+    setScanLogs([]);
+    setProcessingSteps([]);
+    try {
+      appendLog(`skip=${sourceType}:${sourceName}`);
+      setError("zip only");
+    } catch (scanError) {
+      setError(scanError instanceof Error ? scanError.message : "scan failed");
+    }
+  }
+
+  async function runArchiveScan(file: File) {
+    setError(null);
+    setReport(null);
+    setScanLogs([]);
+    setProcessingSteps([]);
+    try {
+      const nextReport = await analyzeStaticZip(file, file.name, appendLog, appendProcessingStep);
+      setReport(nextReport);
+      storeReport(nextReport);
+    } catch (scanError) {
+      setError(scanError instanceof Error ? scanError.message : "scan failed");
+    }
+  }
+
+  function appendProcessingStep(step: ProcessingStep) {
+    setProcessingSteps((steps) => [...steps, step]);
+  }
+
+  if (isLoading) {
+    if (activeView === "extraction-map" && report) {
+      return <ExtractionMapPage report={report} onBack={() => window.close()} />;
+    }
+
+    return (
+      <div className="app-shell">
+        <Topbar activeView={activeView} onNavigate={setActiveView} />
+        <main>
+          <p>Loading account...</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (!user) {
+    const publicPage =
+      activeView === "pricing" ? (
+        <PricingPage onGetStarted={() => setActiveView("auth")} />
+      ) : activeView === "auth" ? (
+        <AuthPanel />
+      ) : (
+        <MarketingHome onGetStarted={() => setActiveView("auth")} onViewPricing={() => setActiveView("pricing")} />
+      );
+
+    return (
+      <div className="app-shell">
+        <Topbar activeView={activeView} onNavigate={setActiveView} />
+        {publicPage}
+      </div>
+    );
+  }
+
+  if (activeView === "extraction-map" && report) {
+    return <ExtractionMapPage report={report} onBack={() => window.close()} />;
   }
 
   return (
-    <div className="shell">
-      <Topbar />
-      <main className="workspace">
-        <ScanPanel onScan={runScan} />
-        <ReportPanel report={report} />
+    <div className="app-shell">
+      <Topbar activeView="app" onNavigate={setActiveView} userEmail={user.email} />
+      <main className="scan-layout">
+        <section>
+          <ScanPanel onArchiveScan={runArchiveScan} onScan={runScan} />
+          <div className="panel scan-log">
+            <h2>Logs</h2>
+            {scanLogs.length ? (
+              <ol>
+                {scanLogs.map((log) => (
+                  <li key={log}>{log}</li>
+                ))}
+              </ol>
+            ) : (
+              <p>none</p>
+            )}
+          </div>
+          <div className="panel processing-trace">
+            <h2>Trace</h2>
+            {processingSteps.length ? (
+              <ol>
+                {processingSteps.map((step) => (
+                  <li key={step.title}>
+                    <strong>{step.title}</strong>
+                    <p>{step.detail}</p>
+                    {step.facts?.length ? (
+                      <ul>
+                        {step.facts.map((fact) => (
+                          <li key={fact}>{fact}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p>none</p>
+            )}
+          </div>
+        </section>
+        <section>
+          {error ? <p className="error-message">{error}</p> : null}
+          <ReportPanel report={report} onOpenExtractionMap={() => openExtractionMap(report)} />
+        </section>
       </main>
-      <HowItWorks />
     </div>
   );
+}
+
+function openExtractionMap(report: ProjectReport | null) {
+  if (!report) return;
+  storeReport(report);
+  window.open(`${window.location.origin}${window.location.pathname}#extraction-map`, "_blank", "noopener,noreferrer");
+}
+
+function storeReport(report: ProjectReport) {
+  localStorage.setItem("fixer:lastReport", JSON.stringify(report));
+}
+
+function readStoredReport(): ProjectReport | null {
+  if (window.location.hash !== "#extraction-map") return null;
+  const storedReport = localStorage.getItem("fixer:lastReport");
+  if (!storedReport) return null;
+
+  try {
+    return JSON.parse(storedReport) as ProjectReport;
+  } catch {
+    return null;
+  }
 }

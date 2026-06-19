@@ -1,35 +1,35 @@
 # fixer.ai
 
-React + Vite app for scanning messy web projects and finding the safest first refactor path before code is rewritten.
+Browser-based static analyzer for messy HTML/CSS/JS/TS project archives.
 
-## Run locally
+## Run
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Current product surface
-
-- Paste a GitHub repository URL.
-- Upload a compressed project export.
-- Classify the repo shape from early signals.
-- Preview structural risks and a staged repair roadmap.
-
-## First scanner targets
-
-- Lovable-style React/Vite/Supabase apps.
-- Static HTML/CSS/JS products with API backends, like Tokensmith.
-- Mixed AI-generated web repos that need stack classification before refactoring.
-
-The scanner logic starts in `src/scanner/analyzeProject.ts`. The app UI is split into React components under `src/components/`.
-
-## TokenSmith fixture
-
-TokenSmith is the first plain HTML/JS sample for the V1 analyzer. Keep the fixture local under `fixtures/tokensmith-main`; the fixture is intentionally ignored by git because it is large.
+Supabase auth is optional for local development. To enable it, copy `.env.example` to `.env` and fill in:
 
 ```bash
-npm run analyze:tokensmith
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
 ```
 
-That command runs `scripts/analyze-static-html.ts`, scans `fixtures/tokensmith-main`, and writes `reports/tokensmith-static-analysis.json`. The current pass measures file size, symbols, imports, selectors, event handlers, browser/platform side effects, complexity estimates, duplicated selectors, repeated symbol names, and surface-level clusters.
+## Current V1
+
+- Upload a `.zip` project archive.
+- Ignore dependency and build folders.
+- Parse HTML with `DOMParser`.
+- Scan CSS/JS/TS text for selectors, symbols, side effects, size, and structure.
+- Show parser facts, ranked files, clusters, extraction candidates, and copy-only guaranteed-safe changes.
+
+## Scripts
+
+```bash
+npm run lint
+npm run build
+npm run analyze:static -- path/to/project-or-zip
+```
+
+`tokensmith-main.zip` is a local fixture and is intentionally ignored by git.

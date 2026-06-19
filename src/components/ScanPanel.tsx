@@ -3,21 +3,22 @@ import { useState } from "react";
 import type { SourceType } from "../scanner/types";
 
 interface ScanPanelProps {
-  onScan: (sourceName: string, sourceType: SourceType) => void;
+  onArchiveScan: (file: File) => void | Promise<void>;
+  onScan: (sourceName: string, sourceType: SourceType) => void | Promise<void>;
 }
 
-export function ScanPanel({ onScan }: ScanPanelProps) {
+export function ScanPanel({ onArchiveScan, onScan }: ScanPanelProps) {
   const [repoUrl, setRepoUrl] = useState("");
   const [isDragging, setIsDragging] = useState(false);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onScan(repoUrl.trim() || "https://github.com/founder/lovable-supabase-app", "github");
+    onScan(repoUrl.trim(), "github");
   }
 
   function handleFile(file: File | undefined) {
     if (!file) return;
-    onScan(file.name, "archive");
+    onArchiveScan(file);
   }
 
   function handleDrag(event: DragEvent<HTMLLabelElement>, dragging: boolean) {
@@ -32,41 +33,35 @@ export function ScanPanel({ onScan }: ScanPanelProps) {
   }
 
   return (
-    <section className="scan-panel" id="scan">
-      <p className="eyebrow">AI-built app rehabilitation</p>
-      <h1>Turn vibe-coded apps into structured, scalable codebases.</h1>
-      <p className="intro">
-        Paste a GitHub repo or drop a compressed project. fixer.ai classifies the repo shape,
-        finds structural risk, and creates a cleanup plan for humans and future AI coding agents.
-      </p>
+    <div id="scan" className="panel">
+      <h1>New scan</h1>
+      <p>.zip input</p>
 
-      <form className="repo-form" onSubmit={handleSubmit}>
-        <label htmlFor="repoUrl">GitHub repository</label>
+      <form onSubmit={handleSubmit}>
+        <label htmlFor="repoUrl">repo</label>
         <div className="input-row">
           <input
             id="repoUrl"
             type="url"
             value={repoUrl}
-            placeholder="https://github.com/founder/ai-built-app"
+            placeholder="https://github.com/..."
             onChange={(event) => setRepoUrl(event.target.value)}
           />
-          <button type="submit">Scan repo</button>
+          <button type="submit">Scan</button>
         </div>
       </form>
 
-      <div className="upload-block">
-        <label htmlFor="projectArchive">Compressed project</label>
+      <div>
+        <label htmlFor="projectArchive">archive</label>
         <label
-          className={`drop-zone${isDragging ? " dragging" : ""}`}
+          className={`drop-zone${isDragging ? " is-dragging" : ""}`}
           htmlFor="projectArchive"
           onDragEnter={(event) => handleDrag(event, true)}
           onDragOver={(event) => handleDrag(event, true)}
           onDragLeave={(event) => handleDrag(event, false)}
           onDrop={handleDrop}
         >
-          <span className="upload-mark">+</span>
-          <strong>Drop a .zip, .tar, or .tar.gz here</strong>
-          <span>Use this for private exports, Lovable sync folders, or static products like Tokensmith.</span>
+          .zip
         </label>
         <input
           id="projectArchive"
@@ -75,21 +70,6 @@ export function ScanPanel({ onScan }: ScanPanelProps) {
           onChange={(event) => handleFile(event.target.files?.[0])}
         />
       </div>
-
-      <div className="target-grid">
-        <div>
-          <strong>Lovable-style apps</strong>
-          <span>React, Vite, Tailwind, Supabase, GitHub sync.</span>
-        </div>
-        <div>
-          <strong>Messy web repos</strong>
-          <span>Static HTML, JS, CSS, Workers, Node, mixed stacks.</span>
-        </div>
-      </div>
-
-      <button className="sample-button" type="button" onClick={() => onScan("tokensmith-main", "archive")}>
-        Load TokenSmith sample
-      </button>
-    </section>
+    </div>
   );
 }

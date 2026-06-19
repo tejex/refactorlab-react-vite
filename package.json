@@ -9,9 +9,16 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "analyze:static": "node --experimental-strip-types scripts/analyze-static-html.ts",
-    "analyze:tokensmith": "node --experimental-strip-types scripts/analyze-static-html.ts fixtures/tokensmith-main"
+    "analyze:tokensmith": "node --experimental-strip-types scripts/analyze-static-html.ts tokensmith-main.zip"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^9.1.1",
+    "@mui/material": "^9.1.1",
+    "@supabase/supabase-js": "^2.108.1",
+    "lucide-react": "^1.18.0",
+    "purgecss": "^8.0.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },

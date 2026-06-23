@@ -1,0 +1,22 @@
+{
+  "applied": 1,
+  "rejected": 0,
+  "excludedOriginalFiles": [],
+  "files": [
+    "fixer-verified-rewrite/assets/logo.svg",
+    "fixer-verified-rewrite/fixer-rewrite-manifest.json",
+    "fixer-verified-rewrite/page-page.js",
+    "fixer-verified-rewrite/page.html"
+  ],
+  "rewrittenHtml": {
+    "path": "fixer-verified-rewrite/page.html",
+    "contains": ["<script src=\"/page-page.js\"></script>"],
+    "notContains": ["image.src"]
+  },
+  "generated": [
+    {
+      "path": "fixer-verified-rewrite/page-page.js",
+      "contains": ["image.src = \"/assets/logo.svg\"", "document.body.append"]
+    }
+  ]
+}

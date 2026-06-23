@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Basic Static Site</title>
+    <link rel="icon" href="assets/logo.svg">
+    <script src="scripts/external.js"></script>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+
+      .card {
+        border: 1px solid #d8dee8;
+        padding: 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <button id="open">Open</button>
+    </main>
+    <script>
+      const button = document.getElementById("open");
+      button?.addEventListener("click", () => {
+        document.body.classList.toggle("open");
+      });
+    </script>
+  </body>
+</html>

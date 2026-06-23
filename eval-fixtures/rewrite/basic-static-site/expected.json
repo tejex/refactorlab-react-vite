@@ -1,0 +1,33 @@
+{
+  "applied": 2,
+  "rejected": 0,
+  "excludedOriginalFiles": [".codex-debug.txt", ".temp/cache.txt", "__MACOSX/basic-static-site/._index.html"],
+  "files": [
+    "fixer-verified-rewrite/assets/logo.svg",
+    "fixer-verified-rewrite/fixer-rewrite-manifest.json",
+    "fixer-verified-rewrite/index-page.js",
+    "fixer-verified-rewrite/index.css",
+    "fixer-verified-rewrite/index.html",
+    "fixer-verified-rewrite/scripts/external.js"
+  ],
+  "rewrittenHtml": {
+    "path": "fixer-verified-rewrite/index.html",
+    "contains": [
+      "<link rel=\"stylesheet\" href=\"/index.css\">",
+      "<script src=\"/index-page.js\"></script>",
+      "<script src=\"scripts/external.js\"></script>",
+      "href=\"assets/logo.svg\""
+    ],
+    "notContains": ["<style>", "classList.toggle"]
+  },
+  "generated": [
+    {
+      "path": "fixer-verified-rewrite/index.css",
+      "contains": [".card", "color-scheme"]
+    },
+    {
+      "path": "fixer-verified-rewrite/index-page.js",
+      "contains": ["classList.toggle", "getElementById"]
+    }
+  ]
+}

@@ -1,20 +1,3 @@
-export type SourceType = "github" | "archive";
-
-export type RiskSeverity = "High" | "Medium" | "Info";
-
-export interface Risk {
-  severity: RiskSeverity;
-  title: string;
-  body: string;
-}
-
-export type RoadmapStep = [title: string, body: string];
-
-export interface AgentReadiness {
-  score: number;
-  gaps: string[];
-}
-
 export interface EvidenceMetric {
   label: string;
   value: string;
@@ -29,6 +12,26 @@ export interface ProjectEvidence {
   metrics: EvidenceMetric[];
   clusters: EvidenceItem[];
   topFiles: EvidenceItem[];
+}
+
+export type CapabilityStatus = "supported" | "partial" | "missing" | "inventory";
+
+export interface ProjectCapability {
+  id: string;
+  label: string;
+  status: CapabilityStatus;
+  detected: number;
+  detail: string;
+  facts: string[];
+}
+
+export interface ProjectCapabilityMap {
+  primaryLane: string;
+  supported: number;
+  partial: number;
+  missing: number;
+  inventory: number;
+  capabilities: ProjectCapability[];
 }
 
 export type ExtractionSafety = "High" | "Medium" | "Low";
@@ -243,14 +246,10 @@ export interface ReactConversionMap {
 
 export interface ProjectReport {
   sourceName: string;
-  sourceType: SourceType;
   score: number;
   summary: string;
-  stacks: string[];
-  risks: Risk[];
-  roadmap: RoadmapStep[];
-  agentReadiness: AgentReadiness;
   evidence?: ProjectEvidence;
+  capabilityMap?: ProjectCapabilityMap;
   inlineAssetPlan?: InlineAssetPlan;
   deadCodeMap?: DeadCodeMap;
   duplicateCssMap?: DuplicateCssMap;

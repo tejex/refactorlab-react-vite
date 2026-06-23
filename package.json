@@ -7,9 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "eval:rewrite": "vite build --config scripts/eval-verified-rewrite.vite.config.ts && node node_modules/.tmp/fixer-evals/eval-verified-rewrite.mjs",
     "preview": "vite preview",
-    "analyze:static": "node --experimental-strip-types scripts/analyze-static-html.ts",
-    "analyze:tokensmith": "node --experimental-strip-types scripts/analyze-static-html.ts tokensmith-main.zip"
+    "analyze:static": "node --experimental-strip-types scripts/analyze-static-html.ts"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -17,8 +17,6 @@
     "@mui/icons-material": "^9.1.1",
     "@mui/material": "^9.1.1",
     "@supabase/supabase-js": "^2.108.1",
-    "lucide-react": "^1.18.0",
-    "purgecss": "^8.0.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },

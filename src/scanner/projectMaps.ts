@@ -1,8 +1,9 @@
 import type { ZipTextFile } from "./browserZip";
-import type { DeadCodeCandidate, DeadCodeMap, DuplicateCssMap, ProjectIntegrityMap } from "./types";
-import { extractCssSelectors } from "./analysisSummary";
-import { dirname, isScriptPath, joinProjectPath, normalizeAssetPath, countLines } from "./scannerUtils";
+import type { DeadCodeCandidate, DeadCodeMap, ProjectIntegrityMap } from "./types";
+import { isScriptPath, normalizeAssetPath, countLines } from "./scannerUtils";
 import { resolveJsTsModuleReference } from "./jsTsModuleMap";
+import { extractHtmlBaseHref, resolveProjectReference, unresolvedProjectPath } from "./projectReferenceResolver";
+export { buildDuplicateCssMap } from "./duplicateCssMap";
 
 export function buildDeadCodeMap(files: ZipTextFile[]): DeadCodeMap {
   const allPaths = new Set(files.map((file) => normalizeAssetPath(file.path)));
@@ -15,9 +16,10 @@ export function buildDeadCodeMap(files: ZipTextFile[]): DeadCodeMap {
 
   for (const file of files) {
     const path = normalizeAssetPath(file.path);
+    const baseHref = path.endsWith(".html") ? extractHtmlBaseHref(file.text) : null;
     const references = extractFileReferences(file);
     const resolvedReferences = references
-      .map((reference) => resolveReferenceFromFile(path, reference, allPaths))
+      .map((reference) => resolveReferenceFromFile(path, reference, allPaths, baseHref))
       .filter((reference): reference is string => Boolean(reference));
 
     graph.set(path, new Set(resolvedReferences));
@@ -49,6 +51,7 @@ export function buildProjectIntegrityMap(files: ZipTextFile[], projectPaths: str
 
   for (const file of files) {
     const sourceFile = normalizeAssetPath(file.path);
+    const baseHref = sourceFile.endsWith(".html") ? extractHtmlBaseHref(file.text) : null;
     const references = extractTypedFileReferences(file);
 
     for (const reference of references) {
@@ -56,10 +59,10 @@ export function buildProjectIntegrityMap(files: ZipTextFile[], projectPaths: str
       const resolvedReference =
         reference.kind === "import"
           ? resolveJsTsModuleReference(sourceFile, reference.raw, allPaths)
-          : resolveProjectReference(sourceFile, reference.raw, allPaths);
+          : resolveProjectReference(sourceFile, reference.raw, allPaths, baseHref);
       if (resolvedReference) continue;
 
-      const missingPath = unresolvedProjectPath(sourceFile, reference.raw);
+      const missingPath = unresolvedProjectPath(sourceFile, reference.raw, baseHref);
       if (!missingPath) continue;
 
       const key = `${sourceFile}::${missingPath}::${reference.kind}`;
@@ -168,49 +171,6 @@ function shouldCheckReference(rawReference: string, fromPath: string): boolean {
   return true;
 }
 
-function unresolvedProjectPath(fromPath: string, rawReference: string): string | null {
-  const cleanReference = normalizeAssetPath(rawReference.split(/[?#]/)[0] ?? "");
-  if (!cleanReference) return null;
-  return rawReference.startsWith("/") ? cleanReference : joinProjectPath(dirname(fromPath), cleanReference);
-}
-
-export function buildDuplicateCssMap(files: ZipTextFile[]): DuplicateCssMap {
-  const selectorSources = new Map<string, Set<string>>();
-
-  for (const file of files) {
-    const path = normalizeAssetPath(file.path);
-    const styleBlocks = path.endsWith(".css") ? [file.text] : extractInlineStyleTexts(file.text);
-
-    for (const blockText of styleBlocks) {
-      for (const selector of extractCssSelectors(blockText).map(normalizeCssSelector).filter(Boolean)) {
-        const sources = selectorSources.get(selector) ?? new Set<string>();
-        sources.add(path);
-        selectorSources.set(selector, sources);
-      }
-    }
-  }
-
-  const repeatedSelectors = [...selectorSources.entries()]
-    .map(([selector, sources]) => ({
-      selector,
-      count: sources.size,
-      sources: [...sources].sort(),
-    }))
-    .filter((item) => item.count > 1)
-    .sort((a, b) => b.count - a.count || a.selector.localeCompare(b.selector))
-    .slice(0, 20);
-
-  return { repeatedSelectors };
-}
-
-function extractInlineStyleTexts(text: string): string[] {
-  return [...text.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].map((match) => match[1]);
-}
-
-function normalizeCssSelector(selector: string): string {
-  return selector.replace(/\s+/g, " ").trim();
-}
-
 function extractFileReferences(file: ZipTextFile): string[] {
   const path = normalizeAssetPath(file.path);
   const text = file.text;
@@ -243,38 +203,6 @@ function extractFileReferences(file: ZipTextFile): string[] {
 
 function extractAttrValues(text: string, attr: string): string[] {
   return [...text.matchAll(new RegExp(`\\b${attr}\\s*=\\s*["']([^"']+)["']`, "gi"))].map((match) => match[1]);
-}
-
-function resolveProjectReference(fromPath: string, rawReference: string, allPaths: Set<string>): string | null {
-  const reference = rawReference.trim();
-
-  if (
-    !reference ||
-    reference.startsWith("#") ||
-    /^(https?:)?\/\//i.test(reference) ||
-    /^(data|mailto|tel|javascript):/i.test(reference)
-  ) {
-    return null;
-  }
-
-  const cleanReference = normalizeAssetPath(reference.split(/[?#]/)[0] ?? "");
-  if (!cleanReference) return null;
-
-  const basePath = reference.startsWith("/") ? cleanReference : joinProjectPath(dirname(fromPath), cleanReference);
-  const candidates = referenceCandidates(basePath);
-  return candidates.find((candidate) => allPaths.has(candidate)) ?? null;
-}
-
-function referenceCandidates(path: string): string[] {
-  const normalized = normalizeAssetPath(path);
-  const candidates = [normalized];
-
-  if (!/\.[a-z0-9]+$/i.test(normalized)) {
-    candidates.push(`${normalized}.html`, `${normalized}.js`, `${normalized}.jsx`, `${normalized}.ts`, `${normalized}.tsx`, `${normalized}.css`);
-  }
-
-  if (normalized.endsWith("/")) candidates.push(`${normalized}index.html`);
-  return candidates;
 }
 
 function walkReachable(entrypoints: string[], graph: Map<string, Set<string>>): Set<string> {
@@ -321,8 +249,8 @@ function confidenceRank(confidence: DeadCodeCandidate["confidence"]): number {
   return confidence === "High" ? 0 : 1;
 }
 
-function resolveReferenceFromFile(fromPath: string, rawReference: string, allPaths: Set<string>): string | null {
+function resolveReferenceFromFile(fromPath: string, rawReference: string, allPaths: Set<string>, baseHref: string | null): string | null {
   return isScriptPath(fromPath)
     ? resolveJsTsModuleReference(fromPath, rawReference, allPaths)
-    : resolveProjectReference(fromPath, rawReference, allPaths);
+    : resolveProjectReference(fromPath, rawReference, allPaths, baseHref);
 }

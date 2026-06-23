@@ -1,4 +1,7 @@
 @import "./styles/base.css";
 @import "./styles/report.css";
+@import "./styles/report-lists.css";
+@import "./styles/report-actions.css";
 @import "./styles/extraction-map.css";
+@import "./styles/extraction-map-drawer.css";
 @import "./styles/responsive.css";

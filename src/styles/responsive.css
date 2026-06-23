@@ -14,9 +14,23 @@
 
   .map-topbar,
   .map-hero,
-  .map-footer {
+  .map-footer,
+  .artifact-action,
+  .capability-map-header,
+  .capability-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .artifact-action,
+  .capability-map-header,
+  .capability-row {
+    display: flex;
+  }
+
+  .capability-summary,
+  .capability-row-meta {
+    justify-content: flex-start;
   }
 }
 

@@ -31,5 +31,3 @@ npm run lint
 npm run build
 npm run analyze:static -- path/to/project-or-zip
 ```
-
-`tokensmith-main.zip` is a local fixture and is intentionally ignored by git.

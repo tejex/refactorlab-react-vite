@@ -3,16 +3,16 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { saveReport, printReport } from "./static-html-analyzer/output.ts";
 import { analyzeProject } from "./static-html-analyzer/project-analyzer.ts";
 import { buildReport } from "./static-html-analyzer/report-builder.ts";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(__dirname, "..");
-const defaultTarget = path.join(repoRoot, "tokensmith-main.zip");
+const targetArg = process.argv[2];
+if (!targetArg) {
+  throw new Error("Usage: npm run analyze:static -- path/to/project-or-zip [output.json]");
+}
 
-const targetInput = path.resolve(process.argv[2] ?? defaultTarget);
+const targetInput = path.resolve(targetArg);
 const outputPath = process.argv[3] ? path.resolve(process.argv[3]) : null;
 
 const workspace = prepareInput(targetInput);

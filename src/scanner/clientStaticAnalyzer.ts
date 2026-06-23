@@ -2,6 +2,7 @@ import { readZipProjectFiles } from "./browserZip";
 import { analyzeFile, buildClusters, repeatedValues, summarizeParserFacts, sum } from "./analysisSummary";
 import { buildInlineAssetPlan } from "./extractionPlan";
 import { buildJsTsModuleMap } from "./jsTsModuleMap";
+import { buildProjectCapabilityMap } from "./projectCapabilityMap";
 import { buildDeadCodeMap, buildDuplicateCssMap, buildProjectIntegrityMap } from "./projectMaps";
 import { buildReactConversionMap } from "./reactConversionMap";
 import type { ProjectReport } from "./types";
@@ -56,6 +57,15 @@ export async function analyzeStaticZip(
   const integrityMap = buildProjectIntegrityMap(files, projectFiles.allPaths);
   const jsTsModuleMap = await buildJsTsModuleMap(files, projectFiles.allPaths);
   const reactConversionMap = buildReactConversionMap(files, inlineAssetPlan, integrityMap, jsTsModuleMap);
+  const capabilityMap = buildProjectCapabilityMap(files, {
+    htmlRoutes: reactConversionMap.routes.length,
+    verifiedRewrites: inlineAssetPlan.guaranteedSafeChanges.length,
+    cssFiles: files.filter((sourceFile) => sourceFile.path.toLowerCase().endsWith(".css")).length,
+    jsFiles: files.filter((sourceFile) => /\.(js|jsx|mjs|cjs)$/i.test(sourceFile.path)).length,
+    tsFiles: files.filter((sourceFile) => /\.(ts|tsx|mts|cts)$/i.test(sourceFile.path)).length,
+    behaviorBindings: reactConversionMap.behaviorBindings.length,
+    routePackets: reactConversionMap.routePackets.length,
+  });
   const inlineStyleCount = inlineAssetPlan.blocks.filter((block) => block.kind === "style").length;
   const inlineScriptCount = inlineAssetPlan.blocks.filter((block) => block.kind === "script").length;
   const lowSafetyCount = inlineAssetPlan.blocks.filter((block) => block.safety === "Low").length;
@@ -75,6 +85,7 @@ export async function analyzeStaticZip(
   onLog(`routePackets=${reactConversionMap.routePackets.length.toLocaleString()}`);
   onLog(`componentOwners=${reactConversionMap.componentOwnership.length.toLocaleString()}`);
   onLog(`behaviorBindings=${reactConversionMap.behaviorBindings.length.toLocaleString()}`);
+  onLog(`missingCapabilities=${capabilityMap.missing.toLocaleString()}`);
   onStep({
     title: "4. Rank",
     detail: topFile?.path ?? "none",
@@ -109,21 +120,14 @@ export async function analyzeStaticZip(
       `routePackets=${reactConversionMap.routePackets.length.toLocaleString()}`,
       `componentOwners=${reactConversionMap.componentOwnership.length.toLocaleString()}`,
       `behaviorBindings=${reactConversionMap.behaviorBindings.length.toLocaleString()}`,
+      `missingCapabilities=${capabilityMap.missing.toLocaleString()}`,
     ],
   });
 
   return {
     sourceName,
-    sourceType: "archive",
     score: Math.max(15, Math.min(85, 100 - Math.round((topFile?.riskScore ?? 0) / 40))),
     summary: `${analyses.length.toLocaleString()} files / ${sum(analyses, "lines").toLocaleString()} lines`,
-    stacks: ["Static HTML + JS"],
-    risks: [],
-    roadmap: [],
-    agentReadiness: {
-      score: Math.max(20, 85 - Math.min(45, Math.round(sum(analyses, "lines") / 1500)) - Math.min(20, duplicateSelectors.length)),
-      gaps: [],
-    },
     evidence: {
       metrics: [
         { label: "Source files", value: analyses.length.toLocaleString() },
@@ -140,6 +144,7 @@ export async function analyzeStaticZip(
         detail: `${analysis.lines.toLocaleString()} lines, risk ${analysis.riskScore.toLocaleString()}, ${analysis.tree.parser} tree ${analysis.tree.nodes.toLocaleString()} nodes`,
       })),
     },
+    capabilityMap,
     inlineAssetPlan,
     deadCodeMap,
     duplicateCssMap,

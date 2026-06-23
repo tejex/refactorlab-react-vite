@@ -1,11 +1,13 @@
 import { useState } from "react";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import { Drawer, IconButton } from "@mui/material";
+import { groupProjectBlockers } from "../../scanner/projectBlockers";
 import type { ProjectIntegrityMap } from "../../scanner/types";
 
 export function ProjectIntegrityMapPanel({ map }: { map: ProjectIntegrityMap }) {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const affectedFiles = new Set(map.missingReferences.map((reference) => reference.sourceFile)).size;
+  const blockerGroups = groupProjectBlockers(map.missingReferences);
 
   return (
     <div className="dead-code-map">
@@ -17,6 +19,10 @@ export function ProjectIntegrityMapPanel({ map }: { map: ProjectIntegrityMap }) 
         <button className="metric-card metric-button" type="button" onClick={() => setIsPanelOpen(true)}>
           <strong>{affectedFiles.toLocaleString()}</strong>
           <span>Affected files</span>
+        </button>
+        <button className="metric-card metric-button" type="button" onClick={() => setIsPanelOpen(true)}>
+          <strong>{blockerGroups.length.toLocaleString()}</strong>
+          <span>Blocker targets</span>
         </button>
       </div>
 
@@ -38,11 +44,13 @@ export function ProjectIntegrityMapPanel({ map }: { map: ProjectIntegrityMap }) 
               </IconButton>
             </div>
             <div className="dead-code-list integrity-scroll-list">
-              {map.missingReferences.map((reference) => (
-                <div className="dead-code-row" key={`${reference.sourceFile}-${reference.missingPath}-${reference.kind}`}>
+              {blockerGroups.map((group) => (
+                <div className="dead-code-row" key={group.id}>
                   <div>
-                    <strong>{reference.missingPath}</strong>
-                    <span>{reference.kind} referenced by {reference.sourceFile}</span>
+                    <strong>{group.target}</strong>
+                    <span>
+                      {group.kind} referenced by {group.count.toLocaleString()} file(s): {group.sourceFiles.join(", ")}
+                    </span>
                   </div>
                 </div>
               ))}

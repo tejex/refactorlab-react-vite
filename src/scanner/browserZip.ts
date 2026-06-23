@@ -9,6 +9,18 @@ export interface ZipProjectFiles {
   allPaths: string[];
 }
 
+export interface ZipProjectEntry {
+  path: string;
+  bytes: Uint8Array;
+  text: string | null;
+}
+
+export interface ZipProjectEntries {
+  entries: ZipProjectEntry[];
+  textFiles: ZipTextFile[];
+  allPaths: string[];
+}
+
 interface ZipEntry {
   path: string;
   compression: number;
@@ -26,6 +38,14 @@ export async function readZipTextFiles(buffer: ArrayBuffer, onLog: (message: str
 }
 
 export async function readZipProjectFiles(buffer: ArrayBuffer, onLog: (message: string) => void): Promise<ZipProjectFiles> {
+  const project = await readZipProjectEntries(buffer, onLog);
+  return {
+    textFiles: project.textFiles,
+    allPaths: project.allPaths,
+  };
+}
+
+export async function readZipProjectEntries(buffer: ArrayBuffer, onLog: (message: string) => void): Promise<ZipProjectEntries> {
   const view = new DataView(buffer);
   const eocdOffset = findEndOfCentralDirectory(view);
   const totalEntries = view.getUint16(eocdOffset + 10, true);
@@ -41,14 +61,23 @@ export async function readZipProjectFiles(buffer: ArrayBuffer, onLog: (message: 
 
   onLog(`sourceFiles=${entries.length.toLocaleString()}`);
 
-  const files: ZipTextFile[] = [];
-  for (const entry of entries) {
+  const projectFiles: ZipProjectEntry[] = [];
+  for (const entry of projectEntries) {
+    const path = normalizeProjectPath(entry.path);
     const bytes = await readEntryBytes(view, entry);
-    files.push({ path: normalizeProjectPath(entry.path), text: textDecoder.decode(bytes), bytes: bytes.byteLength });
+    projectFiles.push({
+      path,
+      bytes,
+      text: isAnalyzableSource(path) ? textDecoder.decode(bytes) : null,
+    });
   }
 
-  onLog(`decoded=${files.length.toLocaleString()}`);
-  return { textFiles: files, allPaths };
+  const textFiles = projectFiles
+    .filter((entry): entry is ZipProjectEntry & { text: string } => entry.text !== null)
+    .map((entry) => ({ path: entry.path, text: entry.text, bytes: entry.bytes.byteLength }));
+
+  onLog(`decoded=${textFiles.length.toLocaleString()}`);
+  return { entries: projectFiles, textFiles, allPaths };
 }
 
 function findEndOfCentralDirectory(view: DataView): number {
@@ -123,6 +152,15 @@ function isAnalyzableSource(filePath: string): boolean {
 }
 
 function isIgnoredPath(filePath: string): boolean {
+  const parts = filePath.split("/").filter(Boolean);
+  const lowerParts = parts.map((part) => part.toLowerCase());
+  const fileName = lowerParts.at(-1) ?? "";
+
+  if (fileName.startsWith(".codex-")) return true;
+  if (fileName.startsWith("._")) return true;
+  if (fileName === ".ds_store" || fileName === "thumbs.db") return true;
+  if (lowerParts.includes(".temp")) return true;
+
   const ignoredParts = new Set([
     ".git",
     ".github",
@@ -138,10 +176,10 @@ function isIgnoredPath(filePath: string): boolean {
     "out",
     ".vite",
     "vendor",
-    "__MACOSX",
+    "__macosx",
   ]);
 
-  return filePath.split("/").some((part) => ignoredParts.has(part));
+  return lowerParts.some((part) => ignoredParts.has(part));
 }
 
 function normalizeProjectPath(filePath: string): string {

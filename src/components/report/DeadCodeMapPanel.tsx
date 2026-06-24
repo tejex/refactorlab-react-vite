@@ -18,6 +18,9 @@ export function DeadCodeMapPanel({ map }: { map: DeadCodeMap }) {
 
   return (
     <div className="dead-code-map">
+      <p className="analysis-note">
+        Legacy analysis: HTML entrypoints only. Results may omit Workers, functions, scripts, and other deployment roots. Automatic deletion is disabled.
+      </p>
       <div className="metric-grid">
         <button className="metric-card metric-button" type="button" onClick={() => openDrawer("unused")}>
           <strong>{map.unreachableFiles.length.toLocaleString()}</strong>

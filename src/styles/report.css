@@ -20,6 +20,13 @@
   color: #626b64;
 }
 
+.analysis-note {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .risk-list {
   display: grid;
   gap: 8px;

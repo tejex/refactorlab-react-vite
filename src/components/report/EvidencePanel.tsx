@@ -3,6 +3,9 @@ import type { EvidenceItem, ProjectEvidence } from "../../scanner/types";
 export function EvidencePanel({ evidence }: { evidence: ProjectEvidence }) {
   return (
     <div>
+      <p className="analysis-note">
+        Legacy heuristic indicator. This is not a production-readiness or security guarantee.
+      </p>
       <h4>Metrics</h4>
       <ul>
         {evidence.metrics.map((metric) => (

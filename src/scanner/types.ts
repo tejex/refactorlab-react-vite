@@ -1,3 +1,5 @@
+import type { ProjectRootsMap } from "../core/roots";
+
 export interface EvidenceMetric {
   label: string;
   value: string;
@@ -256,4 +258,5 @@ export interface ProjectReport {
   integrityMap?: ProjectIntegrityMap;
   jsTsModuleMap?: JsTsModuleMap;
   reactConversionMap?: ReactConversionMap;
+  projectRootsMap?: ProjectRootsMap;
 }

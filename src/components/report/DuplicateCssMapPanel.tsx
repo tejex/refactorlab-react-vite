@@ -15,6 +15,9 @@ export function DuplicateCssMapPanel({ map }: { map: DuplicateCssMap }) {
 
   return (
     <div className="duplicate-css-map">
+      <p className="analysis-note">
+        Syntactic repetition only. Cascade, declaration, and visual equivalence have not been proven. Automatic merging is disabled.
+      </p>
       <div className="metric-grid duplicate-css-actions">
         <button className="metric-card metric-button" type="button" onClick={() => openDrawer("selectors")}>
           <strong>{map.repeatedSelectors.length.toLocaleString()}</strong>

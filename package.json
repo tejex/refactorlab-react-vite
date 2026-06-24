@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "eval:rewrite": "vite build --config scripts/eval-verified-rewrite.vite.config.ts && node node_modules/.tmp/fixer-evals/eval-verified-rewrite.mjs",
+    "eval:roots": "vite build --config scripts/eval-project-roots.vite.config.ts && node node_modules/.tmp/fixer-root-evals/eval-project-roots.mjs",
+    "validate": "npm run lint && npm run eval:rewrite && npm run eval:roots && npm run build",
     "preview": "vite preview",
     "analyze:static": "node --experimental-strip-types scripts/analyze-static-html.ts"
   },

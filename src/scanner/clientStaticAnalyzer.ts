@@ -1,3 +1,4 @@
+import { buildProjectRoots } from "../core/buildProjectRoots";
 import { readZipProjectFiles } from "./browserZip";
 import { analyzeFile, buildClusters, repeatedValues, summarizeParserFacts, sum } from "./analysisSummary";
 import { buildInlineAssetPlan } from "./extractionPlan";
@@ -52,6 +53,7 @@ export async function analyzeStaticZip(
   const duplicateSelectors = repeatedValues(analyses.flatMap((analysis) => analysis.selectors));
   const duplicateSymbols = repeatedValues(analyses.flatMap((analysis) => analysis.symbols));
   const inlineAssetPlan = buildInlineAssetPlan(files);
+  const projectRootsMap = buildProjectRoots({ files, allPaths: projectFiles.allPaths });
   const deadCodeMap = buildDeadCodeMap(files);
   const duplicateCssMap = buildDuplicateCssMap(files);
   const integrityMap = buildProjectIntegrityMap(files, projectFiles.allPaths);
@@ -85,6 +87,9 @@ export async function analyzeStaticZip(
   onLog(`routePackets=${reactConversionMap.routePackets.length.toLocaleString()}`);
   onLog(`componentOwners=${reactConversionMap.componentOwnership.length.toLocaleString()}`);
   onLog(`behaviorBindings=${reactConversionMap.behaviorBindings.length.toLocaleString()}`);
+  onLog(`projectRoots=${projectRootsMap.stats.roots.toLocaleString()}`);
+  onLog(`rootCandidates=${projectRootsMap.stats.candidates.toLocaleString()}`);
+  onLog(`preservedArtifacts=${projectRootsMap.stats.preservedArtifacts.toLocaleString()}`);
   onLog(`missingCapabilities=${capabilityMap.missing.toLocaleString()}`);
   onStep({
     title: "4. Rank",
@@ -120,6 +125,8 @@ export async function analyzeStaticZip(
       `routePackets=${reactConversionMap.routePackets.length.toLocaleString()}`,
       `componentOwners=${reactConversionMap.componentOwnership.length.toLocaleString()}`,
       `behaviorBindings=${reactConversionMap.behaviorBindings.length.toLocaleString()}`,
+      `projectRoots=${projectRootsMap.stats.roots.toLocaleString()}`,
+      `rootCandidates=${projectRootsMap.stats.candidates.toLocaleString()}`,
       `missingCapabilities=${capabilityMap.missing.toLocaleString()}`,
     ],
   });
@@ -151,5 +158,6 @@ export async function analyzeStaticZip(
     integrityMap,
     jsTsModuleMap,
     reactConversionMap,
+    projectRootsMap,
   };
 }

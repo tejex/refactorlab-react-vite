@@ -1,5 +1,6 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
+import { buildProjectRoots } from "../src/core/buildProjectRoots";
 import { buildAiContextPackFromEntries } from "../src/scanner/aiContextPack";
 import { buildConversionKitFromArtifacts } from "../src/scanner/conversionKit";
 import { buildInlineAssetPlan } from "../src/scanner/extractionPlan";
@@ -11,6 +12,7 @@ import type { ZipProjectEntry, ZipTextFile } from "../src/scanner/browserZip";
 import type { ProjectReport } from "../src/scanner/types";
 import { verifyContextPack, verifyConversionKit, verifyMigrationPlan, verifyRouteStarterPack } from "./eval-artifact-packs";
 import { verifyProjectIntegrityResolution } from "./eval-project-integrity";
+import { verifyProjectRootsDiscovery } from "./eval-project-roots";
 import { buildEvalReactConversionMap } from "./eval-react-conversion-map";
 
 interface EvalExpected {
@@ -58,6 +60,7 @@ for (const fixtureName of await listFixtureNames(fixtureRoot)) {
   results.push(await runFixture(fixtureName));
 }
 verifyProjectIntegrityResolution();
+verifyProjectRootsDiscovery();
 
 console.log("\nVerified rewrite evals passed");
 console.table(results);
@@ -75,6 +78,7 @@ async function runFixture(fixtureName: string): Promise<EvalResult> {
   const deadCodeMap = buildDeadCodeMap(textFiles);
   const duplicateCssMap = buildDuplicateCssMap(textFiles);
   const integrityMap = buildProjectIntegrityMap(textFiles, allPaths);
+  const projectRootsMap = buildProjectRoots({ files: textFiles, allPaths });
   const reactConversionMap = buildEvalReactConversionMap(fixtureName, textFiles, inlineAssetPlan.blocks.length, integrityMap.missingReferences);
   const report: ProjectReport = {
     sourceName: fixtureName,
@@ -84,6 +88,7 @@ async function runFixture(fixtureName: string): Promise<EvalResult> {
     deadCodeMap,
     duplicateCssMap,
     integrityMap,
+    projectRootsMap,
     reactConversionMap,
   };
   const safeBlocks = verifiedInlineExtractionBlocks(report);
@@ -238,7 +243,7 @@ function assertNotIncludes(text: string, snippet: string, fixtureName: string, l
   if (text.includes(snippet)) throw new Error(`[${fixtureName}] ${label} should not include: ${snippet}`);
 }
 
-function assertEqual(actual: number, expected: number, fixtureName: string, label: string) {
+function assertEqual(actual: number | string, expected: number | string, fixtureName: string, label: string) {
   if (actual !== expected) throw new Error(`[${fixtureName}] ${label}: expected ${expected}, got ${actual}`);
 }
 

@@ -1,0 +1,77 @@
+.marketing-app-shell,
+.scan-app-shell {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0 clamp(24px, 5vw, 76px);
+  background: #0b1019;
+}
+
+.marketing-app-shell .topbar,
+.scan-app-shell .topbar {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) auto minmax(220px, 1fr);
+  gap: 24px;
+  width: min(1480px, 100%);
+  margin: 0 auto;
+  padding: 24px 0;
+  border-bottom-color: #202a3d;
+  color: #eef4ff;
+}
+
+.marketing-app-shell .topbar nav,
+.scan-app-shell .topbar nav {
+  display: inline-flex;
+  justify-self: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #202a3d;
+  border-radius: 8px;
+  background: #101827;
+}
+
+.marketing-app-shell .topbar > div,
+.scan-app-shell .topbar > div {
+  display: inline-flex;
+  align-items: center;
+  justify-self: end;
+  gap: 12px;
+  color: #aab4c7;
+}
+
+.marketing-app-shell .topbar button,
+.marketing-app-shell .topbar a,
+.scan-app-shell .topbar button,
+.scan-app-shell .topbar a {
+  color: #eef4ff;
+  text-decoration: none;
+}
+
+.marketing-app-shell .topbar button,
+.scan-app-shell .topbar button {
+  min-height: 34px;
+  padding: 0 12px;
+  border-color: #25324a;
+  border-radius: 6px;
+  background: #111827;
+  font-size: 14px;
+}
+
+.marketing-app-shell .topbar button[aria-current="page"],
+.scan-app-shell .topbar button[aria-current="page"] {
+  border-color: #2f64b7;
+  background: #1d3b63;
+}
+
+.marketing-app-shell .topbar nav a,
+.scan-app-shell .topbar nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 6px;
+  color: #aab4c7;
+  font-size: 14px;
+  font-weight: 700;
+}
+

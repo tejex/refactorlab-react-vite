@@ -1,36 +1,80 @@
+import AutoFixHighRoundedIcon from "@mui/icons-material/AutoFixHighRounded";
+import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
+import ElectricBoltRoundedIcon from "@mui/icons-material/ElectricBoltRounded";
+import PlayArrowRoundedIcon from "@mui/icons-material/PlayArrowRounded";
+import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+
 interface MarketingHomeProps {
   onGetStarted: () => void;
   onViewPricing: () => void;
 }
 
+const metrics = [
+  ["94.8%", "Context reduction", ElectricBoltRoundedIcon, "green"],
+  ["1.74M", "Context avoided", SearchRoundedIcon, "blue"],
+  ["89", "Verified fixes", AutoFixHighRoundedIcon, "violet"],
+] as const;
+
+const pipeline = [
+  ["Parse and index", "184 files"],
+  ["Verified fixes", "89 applied"],
+  ["Handoff packet", "96K tokens"],
+] as const;
+
 export function MarketingHome({ onGetStarted, onViewPricing }: MarketingHomeProps) {
   return (
-    <main className="plain-page">
-      <section>
-        <p>AI-built app rehabilitation</p>
-        <h1>Clean up AI-built apps before they collapse.</h1>
-        <p>
-          Upload a messy React, Next.js, or static HTML/JS project. fixer.ai scans the structure, finds risky files,
-          and gives you a repair path before humans or AI agents start refactoring.
-        </p>
-        <div className="button-row">
-          <button type="button" onClick={onGetStarted}>
-            Analyze your app
-          </button>
-          <button type="button" onClick={onViewPricing}>
-            View pricing
-          </button>
+    <main className="marketing-home">
+      <section className="marketing-hero">
+        <div className="hero-copy">
+          <p className="eyebrow">AI migration prep</p>
+          <h1>Turn messy projects into verified LLM handoffs.</h1>
+          <p>Parser-first cleanup before the frontier model sees your repo.</p>
+          <div className="hero-actions">
+            <button type="button" className="primary-action" onClick={onGetStarted}>
+              <PlayArrowRoundedIcon fontSize="small" />
+              Run analysis
+            </button>
+            <button type="button" className="ghost-action" onClick={onViewPricing}>
+              Pricing
+            </button>
+          </div>
         </div>
-      </section>
 
-      <section>
-        <h2>What the V1 scanner focuses on</h2>
-        <ul>
-          <li>Oversized files and components</li>
-          <li>Risky React, Next.js, and static HTML/JS surfaces</li>
-          <li>Repeated selectors, helpers, and UI patterns</li>
-          <li>A first-pass repair path for refactoring</li>
-        </ul>
+        <div className="product-preview" aria-label="Example Fixer analysis preview">
+          <div className="preview-head">
+            <div>
+              <span>Example run</span>
+              <strong>TokenSmith</strong>
+            </div>
+            <b>Measured</b>
+          </div>
+
+          <div className="metric-strip">
+            {metrics.map(([value, label, Icon, tone]) => (
+              <article className={`preview-metric metric-${tone}`} key={label}>
+                <Icon fontSize="small" />
+                <strong>{value}</strong>
+                <p>{label}</p>
+              </article>
+            ))}
+          </div>
+
+          <article className="pipeline-preview">
+            <div className="card-head">
+              <h2>Verified pipeline</h2>
+              <span>0 frontier calls</span>
+            </div>
+            <ol>
+              {pipeline.map(([title, detail]) => (
+                <li key={title}>
+                  <CheckCircleRoundedIcon fontSize="small" />
+                  <strong>{title}</strong>
+                  <span>{detail}</span>
+                </li>
+              ))}
+            </ol>
+          </article>
+        </div>
       </section>
     </main>
   );

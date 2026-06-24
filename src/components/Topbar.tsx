@@ -16,15 +16,20 @@ export function Topbar({ activeView = "home", onNavigate, userEmail }: TopbarPro
 
   return (
     <header className="topbar">
-      <button type="button" onClick={() => onNavigate?.(userEmail ? "app" : "home")}>
+      <button type="button" onClick={() => onNavigate?.("home")}>
         fixer.ai
       </button>
 
       <nav>
         {userEmail ? (
           <>
-            <a href="#scan">Scan</a>
-            <a href="#report">Report</a>
+            <button type="button" aria-current={activeView === "home" ? "page" : undefined} onClick={() => onNavigate?.("home")}>
+              Overview
+            </button>
+            <button type="button" aria-current={activeView === "app" ? "page" : undefined} onClick={() => onNavigate?.("app")}>
+              Scan
+            </button>
+            <a href="#report" onClick={() => onNavigate?.("app")}>Report</a>
           </>
         ) : (
           <>

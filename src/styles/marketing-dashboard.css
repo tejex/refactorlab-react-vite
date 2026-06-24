@@ -1,0 +1,37 @@
+.pipeline-preview {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.pipeline-preview ol {
+  display: grid;
+  gap: 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.pipeline-preview li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 34px;
+}
+
+.pipeline-preview svg {
+  color: #22c55e;
+  margin-top: 2px;
+}
+
+.pipeline-preview li div,
+.pipeline-preview li strong,
+.pipeline-preview li span {
+  display: block;
+}
+
+.pipeline-preview li span {
+  justify-self: end;
+  color: #aab4c7;
+  font-size: 13px;
+}

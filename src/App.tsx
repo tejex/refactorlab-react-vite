@@ -71,7 +71,7 @@ export default function App() {
       );
 
     return (
-      <div className="app-shell">
+      <div className={activeView === "home" ? "app-shell marketing-app-shell" : "app-shell"}>
         <Topbar activeView={activeView} onNavigate={setActiveView} />
         {publicPage}
       </div>
@@ -82,9 +82,27 @@ export default function App() {
     return <ExtractionMapPage report={report} onBack={() => window.close()} />;
   }
 
+  if (activeView === "home") {
+    return (
+      <div className="app-shell marketing-app-shell">
+        <Topbar activeView={activeView} onNavigate={setActiveView} userEmail={user.email} />
+        <MarketingHome onGetStarted={() => setActiveView("app")} onViewPricing={() => setActiveView("pricing")} />
+      </div>
+    );
+  }
+
+  if (activeView === "pricing") {
+    return (
+      <div className="app-shell">
+        <Topbar activeView={activeView} onNavigate={setActiveView} userEmail={user.email} />
+        <PricingPage onGetStarted={() => setActiveView("app")} />
+      </div>
+    );
+  }
+
   return (
-    <div className="app-shell">
-      <Topbar activeView="app" onNavigate={setActiveView} userEmail={user.email} />
+    <div className="app-shell scan-app-shell">
+      <Topbar activeView={activeView} onNavigate={setActiveView} userEmail={user.email} />
       <main className="scan-layout">
         <section>
           <ScanPanel onArchiveScan={runArchiveScan} />

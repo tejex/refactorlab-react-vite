@@ -26,11 +26,11 @@ export function ScanPanel({ onArchiveScan }: ScanPanelProps) {
 
   return (
     <div id="scan" className="panel">
-      <h1>New scan</h1>
-      <p>.zip input</p>
+      <h1>Run analysis</h1>
+      <p>Upload a project archive to generate parser facts, verified rewrites, and LLM handoff packs.</p>
 
       <div>
-        <label htmlFor="projectArchive">archive</label>
+        <label htmlFor="projectArchive">Project archive</label>
         <label
           className={`drop-zone${isDragging ? " is-dragging" : ""}`}
           htmlFor="projectArchive"
@@ -39,9 +39,11 @@ export function ScanPanel({ onArchiveScan }: ScanPanelProps) {
           onDragLeave={(event) => handleDrag(event, false)}
           onDrop={handleDrop}
         >
-          .zip
+          <strong>Drop .zip here</strong>
+          <span>or choose a file from your machine</span>
         </label>
         <input
+          className="file-input"
           id="projectArchive"
           type="file"
           accept=".zip,.tar,.gz,.tgz,.tar.gz"

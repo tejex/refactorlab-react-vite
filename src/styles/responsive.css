@@ -3,13 +3,32 @@
   .report-header,
   .metric-grid,
   .pricing-list,
-  .map-flow-list {
+  .map-flow-list,
+  .marketing-hero,
+  .metric-strip,
+  .preview-grid {
     grid-template-columns: 1fr;
   }
 
-  .topbar {
+  .topbar,
+  .marketing-app-shell .topbar,
+  .scan-app-shell .topbar,
+  .hero-actions,
+  .card-head {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .marketing-app-shell .topbar,
+  .scan-app-shell .topbar {
+    display: flex;
+  }
+
+  .marketing-app-shell .topbar nav,
+  .marketing-app-shell .topbar > div,
+  .scan-app-shell .topbar nav,
+  .scan-app-shell .topbar > div {
+    justify-self: start;
   }
 
   .map-topbar,
@@ -32,10 +51,15 @@
   .capability-row-meta {
     justify-content: flex-start;
   }
+
 }
 
 @media (max-width: 560px) {
   .input-row {
     grid-template-columns: 1fr;
+  }
+
+  .marketing-hero {
+    padding: 20px;
   }
 }

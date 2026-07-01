@@ -1,4 +1,15 @@
 import type { ProjectRootsMap } from "../core/roots";
+import type { DeadCodeComparisonMap, DeadCodeMap } from "./deadCodeTypes";
+export type {
+  DeadCodeCandidate,
+  DeadCodeComparisonItem,
+  DeadCodeComparisonKind,
+  DeadCodeComparisonMap,
+  DeadCodeComparisonStatus,
+  DeadCodeConfidence,
+  DeadCodeMap,
+  ReachabilityStatus,
+} from "./deadCodeTypes";
 
 export interface EvidenceMetric {
   label: string;
@@ -74,22 +85,6 @@ export interface InlineAssetPlan {
   blocks: InlineAssetBlock[];
   guaranteedSafeChanges: GuaranteedSafeChange[];
   externalOrder: ExternalAssetOrder[];
-}
-
-export type DeadCodeConfidence = "High" | "Review";
-
-export interface DeadCodeCandidate {
-  path: string;
-  kind: "style" | "script" | "page" | "source";
-  confidence: DeadCodeConfidence;
-  reason: string;
-  lines: number;
-}
-
-export interface DeadCodeMap {
-  entrypoints: string[];
-  reachableFiles: string[];
-  unreachableFiles: DeadCodeCandidate[];
 }
 
 export interface DuplicateCssSelector {
@@ -254,9 +249,11 @@ export interface ProjectReport {
   capabilityMap?: ProjectCapabilityMap;
   inlineAssetPlan?: InlineAssetPlan;
   deadCodeMap?: DeadCodeMap;
+  deadCodeComparisonMap?: DeadCodeComparisonMap;
   duplicateCssMap?: DuplicateCssMap;
   integrityMap?: ProjectIntegrityMap;
   jsTsModuleMap?: JsTsModuleMap;
   reactConversionMap?: ReactConversionMap;
   projectRootsMap?: ProjectRootsMap;
+  projectRootsMapHash?: string;
 }

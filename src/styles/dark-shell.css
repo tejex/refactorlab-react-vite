@@ -1,5 +1,4 @@
-.marketing-app-shell,
-.scan-app-shell {
+:is(.marketing-app-shell, .pricing-app-shell, .scan-app-shell) {
   width: 100%;
   min-height: 100vh;
   margin: 0;
@@ -7,8 +6,7 @@
   background: #0b1019;
 }
 
-.marketing-app-shell .topbar,
-.scan-app-shell .topbar {
+:is(.marketing-app-shell, .pricing-app-shell, .scan-app-shell) .topbar {
   display: grid;
   grid-template-columns: minmax(140px, 1fr) auto minmax(220px, 1fr);
   gap: 24px;
@@ -19,8 +17,7 @@
   color: #eef4ff;
 }
 
-.marketing-app-shell .topbar nav,
-.scan-app-shell .topbar nav {
+:is(.marketing-app-shell, .pricing-app-shell, .scan-app-shell) .topbar nav {
   display: inline-flex;
   justify-self: center;
   gap: 4px;
@@ -30,8 +27,7 @@
   background: #101827;
 }
 
-.marketing-app-shell .topbar > div,
-.scan-app-shell .topbar > div {
+:is(.marketing-app-shell, .pricing-app-shell, .scan-app-shell) .topbar > div {
   display: inline-flex;
   align-items: center;
   justify-self: end;
@@ -39,16 +35,13 @@
   color: #aab4c7;
 }
 
-.marketing-app-shell .topbar button,
-.marketing-app-shell .topbar a,
-.scan-app-shell .topbar button,
-.scan-app-shell .topbar a {
+:is(.marketing-app-shell, .pricing-app-shell, .scan-app-shell) .topbar button,
+:is(.marketing-app-shell, .pricing-app-shell, .scan-app-shell) .topbar a {
   color: #eef4ff;
   text-decoration: none;
 }
 
-.marketing-app-shell .topbar button,
-.scan-app-shell .topbar button {
+:is(.marketing-app-shell, .pricing-app-shell, .scan-app-shell) .topbar button {
   min-height: 34px;
   padding: 0 12px;
   border-color: #25324a;
@@ -57,14 +50,12 @@
   font-size: 14px;
 }
 
-.marketing-app-shell .topbar button[aria-current="page"],
-.scan-app-shell .topbar button[aria-current="page"] {
+:is(.marketing-app-shell, .pricing-app-shell, .scan-app-shell) .topbar button[aria-current="page"] {
   border-color: #2f64b7;
   background: #1d3b63;
 }
 
-.marketing-app-shell .topbar nav a,
-.scan-app-shell .topbar nav a {
+:is(.marketing-app-shell, .pricing-app-shell, .scan-app-shell) .topbar nav a {
   display: inline-flex;
   align-items: center;
   min-height: 34px;
@@ -74,4 +65,3 @@
   font-size: 14px;
   font-weight: 700;
 }
-

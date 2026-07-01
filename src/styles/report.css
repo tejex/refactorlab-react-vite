@@ -20,24 +20,6 @@
   color: #626b64;
 }
 
-.analysis-note {
-  margin: 0;
-  color: #64748b;
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.risk-list {
-  display: grid;
-  gap: 8px;
-}
-
-.risk-row {
-  padding: 10px;
-  border: 1px solid #dce3d8;
-  border-radius: 6px;
-}
-
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -64,30 +46,7 @@
   font-size: 13px;
 }
 
-.metric-button {
-  min-height: auto;
-  display: block;
-  width: 100%;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
-}
-
-.metric-button:hover {
-  border-color: #8fb1e8;
-  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.1);
-  transform: translateY(-1px);
-}
-
-.metric-button:focus-visible {
-  outline: 2px solid #2563eb;
-  outline-offset: 2px;
-}
-
-.asset-plan,
-.dead-code-map,
-.duplicate-css-map {
+.handoff-output-panel {
   display: grid;
   gap: 12px;
 }
@@ -103,68 +62,4 @@
 
 .analysis-card h3 {
   margin: 0;
-}
-
-.capability-map {
-  gap: 10px;
-}
-
-.capability-map-header,
-.capability-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: start;
-}
-
-.capability-map-header p,
-.capability-row span {
-  margin: 2px 0 0;
-  color: #626b64;
-  font-size: 13px;
-}
-
-.capability-summary,
-.capability-row-meta {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-  color: #626b64;
-  font-size: 13px;
-}
-
-.capability-list {
-  display: grid;
-  gap: 8px;
-}
-
-.capability-row {
-  padding: 10px;
-  border: 1px solid #dce3d8;
-  border-radius: 8px;
-  background: #fafbf8;
-}
-
-.capability-status {
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.capability-status-supported {
-  color: #0f6a43;
-  background: #e7f4eb;
-}
-
-.capability-status-partial,
-.capability-status-inventory {
-  color: #73510b;
-  background: #fff4dc;
-}
-
-.capability-status-missing {
-  color: #8c2f28;
-  background: #fff0ed;
 }

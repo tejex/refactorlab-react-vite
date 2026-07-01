@@ -11,6 +11,7 @@ import { buildVerifiedInlineExtractionRewrite, verifiedInlineExtractionBlocks } 
 import type { ZipProjectEntry, ZipTextFile } from "../src/scanner/browserZip";
 import type { ProjectReport } from "../src/scanner/types";
 import { verifyContextPack, verifyConversionKit, verifyMigrationPlan, verifyRouteStarterPack } from "./eval-artifact-packs";
+import { verifyDeadCodeComparison } from "./eval-dead-code-comparison";
 import { verifyProjectIntegrityResolution } from "./eval-project-integrity";
 import { verifyProjectRootsDiscovery } from "./eval-project-roots";
 import { buildEvalReactConversionMap } from "./eval-react-conversion-map";
@@ -61,6 +62,7 @@ for (const fixtureName of await listFixtureNames(fixtureRoot)) {
 }
 verifyProjectIntegrityResolution();
 verifyProjectRootsDiscovery();
+verifyDeadCodeComparison();
 
 console.log("\nVerified rewrite evals passed");
 console.table(results);

@@ -12,20 +12,25 @@
 
   .topbar,
   .marketing-app-shell .topbar,
+  .pricing-app-shell .topbar,
   .scan-app-shell .topbar,
   .hero-actions,
-  .card-head {
+  .card-head,
+  .pricing-card-head {
     align-items: flex-start;
     flex-direction: column;
   }
 
   .marketing-app-shell .topbar,
+  .pricing-app-shell .topbar,
   .scan-app-shell .topbar {
     display: flex;
   }
 
   .marketing-app-shell .topbar nav,
   .marketing-app-shell .topbar > div,
+  .pricing-app-shell .topbar nav,
+  .pricing-app-shell .topbar > div,
   .scan-app-shell .topbar nav,
   .scan-app-shell .topbar > div {
     justify-self: start;
@@ -34,22 +39,13 @@
   .map-topbar,
   .map-hero,
   .map-footer,
-  .artifact-action,
-  .capability-map-header,
-  .capability-row {
+  .artifact-action {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .artifact-action,
-  .capability-map-header,
-  .capability-row {
+  .artifact-action {
     display: flex;
-  }
-
-  .capability-summary,
-  .capability-row-meta {
-    justify-content: flex-start;
   }
 
 }

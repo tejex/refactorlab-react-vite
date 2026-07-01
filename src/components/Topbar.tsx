@@ -29,7 +29,7 @@ export function Topbar({ activeView = "home", onNavigate, userEmail }: TopbarPro
             <button type="button" aria-current={activeView === "app" ? "page" : undefined} onClick={() => onNavigate?.("app")}>
               Scan
             </button>
-            <a href="#report" onClick={() => onNavigate?.("app")}>Report</a>
+            <a href="#report" onClick={() => onNavigate?.("app")}>Outputs</a>
           </>
         ) : (
           <>

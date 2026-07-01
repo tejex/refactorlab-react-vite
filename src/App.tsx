@@ -70,8 +70,15 @@ export default function App() {
         <MarketingHome onGetStarted={() => setActiveView("auth")} onViewPricing={() => setActiveView("pricing")} />
       );
 
+    const publicShellClass =
+      activeView === "home"
+        ? "app-shell marketing-app-shell"
+        : activeView === "pricing"
+          ? "app-shell pricing-app-shell"
+          : "app-shell";
+
     return (
-      <div className={activeView === "home" ? "app-shell marketing-app-shell" : "app-shell"}>
+      <div className={publicShellClass}>
         <Topbar activeView={activeView} onNavigate={setActiveView} />
         {publicPage}
       </div>
@@ -93,7 +100,7 @@ export default function App() {
 
   if (activeView === "pricing") {
     return (
-      <div className="app-shell">
+      <div className="app-shell pricing-app-shell">
         <Topbar activeView={activeView} onNavigate={setActiveView} userEmail={user.email} />
         <PricingPage onGetStarted={() => setActiveView("app")} />
       </div>
@@ -145,7 +152,6 @@ export default function App() {
           {error ? <p className="error-message">{error}</p> : null}
           <ReportPanel
             report={report}
-            onOpenExtractionMap={() => openExtractionMap(report)}
             onRunVerifiedRewrite={artifacts.onRunVerifiedRewrite}
             onDownloadVerifiedRewrite={artifacts.onDownloadVerifiedRewrite}
             onBuildAiContextPack={artifacts.onBuildAiContextPack}
@@ -176,12 +182,6 @@ export default function App() {
       </main>
     </div>
   );
-}
-
-function openExtractionMap(report: ProjectReport | null) {
-  if (!report) return;
-  storeReport(report);
-  window.open(`${window.location.origin}${window.location.pathname}#extraction-map`, "_blank", "noopener,noreferrer");
 }
 
 function storeReport(report: ProjectReport) {

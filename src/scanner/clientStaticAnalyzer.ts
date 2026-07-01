@@ -1,10 +1,12 @@
 import { buildProjectRoots } from "../core/buildProjectRoots";
 import { readZipProjectFiles } from "./browserZip";
 import { analyzeFile, buildClusters, repeatedValues, summarizeParserFacts, sum } from "./analysisSummary";
+import { buildDeadCodeComparisonMap } from "./deadCodeComparison";
 import { buildInlineAssetPlan } from "./extractionPlan";
 import { buildJsTsModuleMap } from "./jsTsModuleMap";
 import { buildProjectCapabilityMap } from "./projectCapabilityMap";
 import { buildDeadCodeMap, buildDuplicateCssMap, buildProjectIntegrityMap } from "./projectMaps";
+import { hashProjectRootsMap } from "./projectRootsArtifacts";
 import { buildReactConversionMap } from "./reactConversionMap";
 import type { ProjectReport } from "./types";
 
@@ -54,7 +56,9 @@ export async function analyzeStaticZip(
   const duplicateSymbols = repeatedValues(analyses.flatMap((analysis) => analysis.symbols));
   const inlineAssetPlan = buildInlineAssetPlan(files);
   const projectRootsMap = buildProjectRoots({ files, allPaths: projectFiles.allPaths });
+  const projectRootsMapHash = await hashProjectRootsMap(projectRootsMap);
   const deadCodeMap = buildDeadCodeMap(files);
+  const deadCodeComparisonMap = buildDeadCodeComparisonMap(files, deadCodeMap, projectRootsMap, projectRootsMapHash);
   const duplicateCssMap = buildDuplicateCssMap(files);
   const integrityMap = buildProjectIntegrityMap(files, projectFiles.allPaths);
   const jsTsModuleMap = await buildJsTsModuleMap(files, projectFiles.allPaths);
@@ -80,6 +84,8 @@ export async function analyzeStaticZip(
   onLog(`script=${inlineScriptCount.toLocaleString()}`);
   onLog(`safe=${guaranteedSafeCount.toLocaleString()}`);
   onLog(`unreachable=${deadCodeMap.unreachableFiles.length.toLocaleString()}`);
+  onLog(`rootAwareDead=${deadCodeComparisonMap.rootAware.summary.unreachableAllDomains.toLocaleString()}`);
+  onLog(`rescuedByRoots=${deadCodeComparisonMap.deltas.rescuedByRoots.length.toLocaleString()}`);
   onLog(`duplicateCss=${duplicateCssMap.repeatedSelectors.length.toLocaleString()}`);
   onLog(`missingRefs=${integrityMap.missingReferences.length.toLocaleString()}`);
   onLog(`jsTsFiles=${jsTsModuleMap.files.length.toLocaleString()}`);
@@ -90,6 +96,7 @@ export async function analyzeStaticZip(
   onLog(`projectRoots=${projectRootsMap.stats.roots.toLocaleString()}`);
   onLog(`rootCandidates=${projectRootsMap.stats.candidates.toLocaleString()}`);
   onLog(`preservedArtifacts=${projectRootsMap.stats.preservedArtifacts.toLocaleString()}`);
+  onLog(`rootsMapHash=${projectRootsMapHash.slice(0, 12)}`);
   onLog(`missingCapabilities=${capabilityMap.missing.toLocaleString()}`);
   onStep({
     title: "4. Rank",
@@ -117,6 +124,8 @@ export async function analyzeStaticZip(
     facts: [
       `entrypoints=${deadCodeMap.entrypoints.length.toLocaleString()}`,
       `reachable=${deadCodeMap.reachableFiles.length.toLocaleString()}`,
+      `rootAwareDead=${deadCodeComparisonMap.rootAware.summary.unreachableAllDomains.toLocaleString()}`,
+      `rescued=${deadCodeComparisonMap.deltas.rescuedByRoots.length.toLocaleString()}`,
       `review=${deadCodeMap.unreachableFiles.filter((candidate) => candidate.confidence === "Review").length.toLocaleString()}`,
       `duplicateCss=${duplicateCssMap.repeatedSelectors.length.toLocaleString()}`,
       `missingRefs=${integrityMap.missingReferences.length.toLocaleString()}`,
@@ -127,6 +136,7 @@ export async function analyzeStaticZip(
       `behaviorBindings=${reactConversionMap.behaviorBindings.length.toLocaleString()}`,
       `projectRoots=${projectRootsMap.stats.roots.toLocaleString()}`,
       `rootCandidates=${projectRootsMap.stats.candidates.toLocaleString()}`,
+      `rootsMapHash=${projectRootsMapHash.slice(0, 12)}`,
       `missingCapabilities=${capabilityMap.missing.toLocaleString()}`,
     ],
   });
@@ -154,10 +164,12 @@ export async function analyzeStaticZip(
     capabilityMap,
     inlineAssetPlan,
     deadCodeMap,
+    deadCodeComparisonMap,
     duplicateCssMap,
     integrityMap,
     jsTsModuleMap,
     reactConversionMap,
     projectRootsMap,
+    projectRootsMapHash,
   };
 }

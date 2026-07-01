@@ -5,13 +5,36 @@ import { resolveJsTsModuleReference } from "./jsTsModuleMap";
 import { extractHtmlBaseHref, resolveProjectReference, unresolvedProjectPath } from "./projectReferenceResolver";
 export { buildDuplicateCssMap } from "./duplicateCssMap";
 
+export interface DeadCodeReferenceGraph {
+  allPaths: Set<string>;
+  byPath: Map<string, ZipTextFile>;
+  graph: Map<string, Set<string>>;
+}
+
 export function buildDeadCodeMap(files: ZipTextFile[]): DeadCodeMap {
-  const allPaths = new Set(files.map((file) => normalizeAssetPath(file.path)));
-  const byPath = new Map(files.map((file) => [normalizeAssetPath(file.path), file]));
+  const { allPaths, byPath, graph } = buildDeadCodeReferenceGraph(files);
   const entrypoints = files
     .map((file) => normalizeAssetPath(file.path))
     .filter((path) => path.endsWith(".html"))
     .sort();
+
+  const reachable = walkReachable(entrypoints, graph);
+  const unreachableFiles = [...allPaths]
+    .filter((path) => !reachable.has(path))
+    .filter((path) => !entrypoints.includes(path))
+    .map((path) => buildDeadCodeCandidate(path, byPath))
+    .sort((a, b) => confidenceRank(a.confidence) - confidenceRank(b.confidence) || a.path.localeCompare(b.path));
+
+  return {
+    entrypoints,
+    reachableFiles: [...reachable].sort(),
+    unreachableFiles,
+  };
+}
+
+export function buildDeadCodeReferenceGraph(files: ZipTextFile[]): DeadCodeReferenceGraph {
+  const allPaths = new Set(files.map((file) => normalizeAssetPath(file.path)));
+  const byPath = new Map(files.map((file) => [normalizeAssetPath(file.path), file]));
   const graph = new Map<string, Set<string>>();
 
   for (const file of files) {
@@ -25,23 +48,20 @@ export function buildDeadCodeMap(files: ZipTextFile[]): DeadCodeMap {
     graph.set(path, new Set(resolvedReferences));
   }
 
-  const reachable = walkReachable(entrypoints, graph);
-  const unreachableFiles = [...allPaths]
-    .filter((path) => !reachable.has(path))
-    .filter((path) => !entrypoints.includes(path))
-    .map((path): DeadCodeCandidate => ({
-      path,
-      kind: deadCodeKind(path),
-      confidence: deadCodeConfidence(path, byPath.get(path)?.text ?? ""),
-      reason: deadCodeReason(path),
-      lines: countLines(byPath.get(path)?.text ?? ""),
-    }))
-    .sort((a, b) => confidenceRank(a.confidence) - confidenceRank(b.confidence) || a.path.localeCompare(b.path));
+  return { allPaths, byPath, graph };
+}
 
+export function walkDeadCodeReachability(entrypoints: string[], graph: Map<string, Set<string>>): Set<string> {
+  return walkReachable(entrypoints, graph);
+}
+
+export function buildDeadCodeCandidate(path: string, byPath: Map<string, ZipTextFile>): DeadCodeCandidate {
   return {
-    entrypoints,
-    reachableFiles: [...reachable].sort(),
-    unreachableFiles,
+    path,
+    kind: deadCodeKind(path),
+    confidence: deadCodeConfidence(path, byPath.get(path)?.text ?? ""),
+    reason: deadCodeReason(path),
+    lines: countLines(byPath.get(path)?.text ?? ""),
   };
 }
 

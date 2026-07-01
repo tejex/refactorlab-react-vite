@@ -28,21 +28,11 @@
 }
 
 .scan-app-shell .panel p,
-.scan-app-shell .analysis-note,
 .scan-app-shell .report-summary,
 .scan-app-shell .report-header p,
 .scan-app-shell .metric-card span,
-.scan-app-shell .capability-map-header p,
-.scan-app-shell .capability-row span,
-.scan-app-shell .capability-summary,
-.scan-app-shell .capability-row-meta,
 .scan-app-shell .artifact-action span,
-.scan-app-shell .rewrite-change-row span,
-.scan-app-shell .duplicate-css-row span,
-.scan-app-shell .duplicate-css-row small,
-.scan-app-shell .dead-code-row span,
-.scan-app-shell .dead-code-row .handoff-facts,
-.scan-app-shell .most-repeated-summary span:first-child {
+.scan-app-shell .rewrite-change-row span {
   color: #9aa6bb;
 }
 
@@ -93,21 +83,10 @@
 }
 
 .scan-app-shell .metric-card,
-.scan-app-shell .capability-row,
 .scan-app-shell .rewrite-change-row,
-.scan-app-shell .rewrite-change-warning,
-.scan-app-shell .dead-code-row,
-.scan-app-shell .duplicate-css-row,
-.scan-app-shell .file-list-panel,
-.scan-app-shell .ai-handoff-summary,
-.scan-app-shell .risk-row {
+.scan-app-shell .rewrite-change-warning {
   border-color: #25324a;
   background: #151c2b;
-}
-
-.scan-app-shell .metric-button:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.12);
 }
 
 .scan-app-shell .link-button {
@@ -116,10 +95,6 @@
 
 .scan-app-shell .link-button:disabled {
   color: #657187;
-}
-
-.scan-app-shell .file-list-panel span {
-  color: #dce7f7;
 }
 
 .scan-app-shell .artifact-action,
@@ -141,22 +116,16 @@
   background: #151c2b;
 }
 
-.scan-app-shell .capability-status-supported,
-.scan-app-shell .confidence-high,
 .scan-app-shell .safety-high {
   color: #bff8d0;
   background: #0f6a3a;
 }
 
-.scan-app-shell .capability-status-partial,
-.scan-app-shell .capability-status-inventory,
-.scan-app-shell .confidence-review,
 .scan-app-shell .safety-medium {
   color: #ffe2aa;
   background: #6b4308;
 }
 
-.scan-app-shell .capability-status-missing,
 .scan-app-shell .safety-low {
   color: #fecaca;
   background: #6e1b18;

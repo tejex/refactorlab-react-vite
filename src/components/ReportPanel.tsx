@@ -1,12 +1,5 @@
 import type { ProjectReport } from "../scanner/types";
 import { ArtifactSummaryPanel } from "./report/ArtifactSummaryPanel";
-import { DeadCodeMapPanel } from "./report/DeadCodeMapPanel";
-import { DuplicateCssMapPanel } from "./report/DuplicateCssMapPanel";
-import { EvidencePanel } from "./report/EvidencePanel";
-import { InlineAssetPlanPanel } from "./report/InlineAssetPlanPanel";
-import { JsTsModuleMapPanel } from "./report/JsTsModuleMapPanel";
-import { ProjectCapabilityMapPanel } from "./report/ProjectCapabilityMapPanel";
-import { ProjectIntegrityMapPanel } from "./report/ProjectIntegrityMapPanel";
 import { ReactConversionMapPanel } from "./report/ReactConversionMapPanel";
 import { VerifiedRewritePanel } from "./report/VerifiedRewritePanel";
 import type { AiContextPackBuild } from "../scanner/aiContextPack";
@@ -17,7 +10,6 @@ import type { VerifiedRewriteArchive } from "../scanner/verifiedRewriteEngine";
 
 interface ReportPanelProps {
   report: ProjectReport | null;
-  onOpenExtractionMap?: () => void;
   onRunVerifiedRewrite?: () => void;
   onDownloadVerifiedRewrite?: () => void;
   onBuildAiContextPack?: () => void;
@@ -47,7 +39,6 @@ interface ReportPanelProps {
 
 export function ReportPanel({
   report,
-  onOpenExtractionMap,
   onRunVerifiedRewrite,
   onDownloadVerifiedRewrite,
   onBuildAiContextPack,
@@ -77,7 +68,7 @@ export function ReportPanel({
   if (!report) {
     return (
       <div id="report" className="panel">
-        <h2>Report</h2>
+        <h2>Outputs</h2>
         <p>No project scanned yet.</p>
       </div>
     );
@@ -87,18 +78,14 @@ export function ReportPanel({
     <div id="report" className="panel">
       <header className="report-header">
         <div>
-          <p>Readiness score</p>
-          <h2>{report.score}/100</h2>
-        </div>
-        <div>
-          <p>Analyzed source</p>
+          <p>Project</p>
           <h2>{report.sourceName}</h2>
         </div>
+        <div>
+          <p>Parsed source</p>
+          <h2>{report.summary}</h2>
+        </div>
       </header>
-
-      <p className="report-summary">{report.summary}</p>
-
-      {report.capabilityMap ? <ProjectCapabilityMapPanel map={report.capabilityMap} /> : null}
 
       <ArtifactSummaryPanel
         report={report}
@@ -108,23 +95,9 @@ export function ReportPanel({
         routeStarterResult={routeStarterResult}
       />
 
-      {report.evidence ? (
-        <details>
-          <summary>Facts</summary>
-          <EvidencePanel evidence={report.evidence} />
-        </details>
-      ) : null}
-
-      {report.inlineAssetPlan ? (
-        <details open>
-          <summary>Extraction</summary>
-          <InlineAssetPlanPanel plan={report.inlineAssetPlan} onOpenExtractionMap={onOpenExtractionMap} />
-        </details>
-      ) : null}
-
       {report.inlineAssetPlan ? (
         <section className="analysis-card">
-          <h3>Verified Rewrite Engine</h3>
+          <h3>Verified rewrite output</h3>
           <VerifiedRewritePanel
             report={report}
             isAvailable={isRewriteAvailable}
@@ -139,9 +112,8 @@ export function ReportPanel({
 
       {report.reactConversionMap ? (
         <section className="analysis-card">
-          <h3>AI Conversion Readiness</h3>
+          <h3>AI handoff outputs</h3>
           <ReactConversionMapPanel
-            map={report.reactConversionMap}
             report={report}
             contextPackResult={contextPackResult}
             migrationPlanResult={migrationPlanResult}
@@ -164,34 +136,6 @@ export function ReportPanel({
             onDownloadConversionKit={onDownloadConversionKit}
           />
         </section>
-      ) : null}
-
-      {report.deadCodeMap ? (
-        <section className="analysis-card">
-          <h3>Dead Code Map</h3>
-          <DeadCodeMapPanel map={report.deadCodeMap} />
-        </section>
-      ) : null}
-
-      {report.integrityMap ? (
-        <section className="analysis-card">
-          <h3>Project Integrity Map</h3>
-          <ProjectIntegrityMapPanel map={report.integrityMap} />
-        </section>
-      ) : null}
-
-      {report.jsTsModuleMap ? (
-        <section className="analysis-card">
-          <h3>JS/TS Module Map</h3>
-          <JsTsModuleMapPanel map={report.jsTsModuleMap} />
-        </section>
-      ) : null}
-
-      {report.duplicateCssMap ? (
-        <details open>
-          <summary>Duplicate CSS Map</summary>
-          <DuplicateCssMapPanel map={report.duplicateCssMap} />
-        </details>
       ) : null}
     </div>
   );

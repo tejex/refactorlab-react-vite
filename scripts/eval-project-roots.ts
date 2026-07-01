@@ -1,5 +1,6 @@
 import { buildProjectRoots, defaultProjectRootDetectors } from "../src/core/buildProjectRoots";
 import type { ProjectRootDetector } from "../src/core/roots";
+import { buildProjectRootsExportFiles, buildProjectRootsProofSummary, canonicalizeProjectRootsMap } from "../src/scanner/projectRootsArtifacts";
 import type { ZipTextFile } from "../src/scanner/browserZip";
 
 export function verifyProjectRootsDiscovery() {
@@ -11,6 +12,7 @@ export function verifyProjectRootsDiscovery() {
 
   assertEqual(stableJson(first), stableJson(second), "deterministic output");
   assertEqual(stableJson(first), stableJson(reversed), "detector order independence");
+  assertEqual(canonicalizeProjectRootsMap(first), canonicalizeProjectRootsMap(second), "canonical roots output");
   assertIncludes(first.roots.map((root) => root.id), "root:html-route:/", "home route");
   assertIncludes(first.roots.map((root) => root.id), "root:html-route:api/usage", "nested route");
   assertIncludes(first.roots.map((root) => root.id), "root:cloudflare-worker:workers/api.ts", "worker root");
@@ -32,6 +34,7 @@ export function verifyProjectRootsDiscovery() {
   verifyUnknownCandidateVisibility();
   verifyAbsoluteWorkspaceIndependence(files, allPaths);
   verifyDetectorFailureIsolation(files, allPaths);
+  verifyProjectRootsExports(first);
 }
 
 function rootFixtureFiles(): ZipTextFile[] {
@@ -93,6 +96,20 @@ function verifyDetectorFailureIsolation(files: ZipTextFile[], allPaths: string[]
   assertIncludes(result.roots.map((root) => root.id), "root:html-route:/", "other detectors survive failure");
 }
 
+function verifyProjectRootsExports(result: ReturnType<typeof buildProjectRoots>) {
+  const hash = "eval-roots-hash";
+  const summary = buildProjectRootsProofSummary(result, hash);
+  const files = buildProjectRootsExportFiles(result, hash);
+
+  assertEqual(summary.rootsMapHash, hash, "proof summary hash");
+  assertEqual(summary.totals.roots, result.roots.length, "proof summary roots");
+  assertIncludes(files.map((file) => file.path), "project-ir/roots.json", "roots export");
+  assertIncludes(files.map((file) => file.path), "project-ir/proof-summary.json", "proof summary export");
+  if (!String(files.find((file) => file.path === "project-ir/roots.json")?.content).includes(hash)) {
+    throw new Error("[project-roots] roots export must include rootsMapHash");
+  }
+}
+
 function textFile(path: string, text: string): ZipTextFile {
   return { path, text, bytes: new TextEncoder().encode(text).byteLength };
 }
@@ -113,7 +130,7 @@ function assertNotIncludes(values: string[], expected: string, label: string) {
   if (values.includes(expected)) throw new Error(`[project-roots] ${label}: did not expect ${expected}`);
 }
 
-function assertEqual(actual: string, expected: string, label: string) {
+function assertEqual(actual: string | number, expected: string | number, label: string) {
   if (actual !== expected) throw new Error(`[project-roots] ${label}: expected ${expected}, got ${actual}`);
 }
 

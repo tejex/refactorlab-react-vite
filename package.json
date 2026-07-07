@@ -1,43 +1,26 @@
 {
-  "name": "fixer.ai",
+  "name": "fixer-desktop",
+  "version": "0.1.0",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "eval:rewrite": "vite build --config scripts/eval-verified-rewrite.vite.config.ts && node node_modules/.tmp/fixer-evals/eval-verified-rewrite.mjs",
-    "eval:roots": "vite build --config scripts/eval-project-roots.vite.config.ts && node node_modules/.tmp/fixer-root-evals/eval-project-roots.mjs",
-    "eval:repair": "node --experimental-strip-types scripts/eval-repair-loop.ts",
-    "repair:ticket": "node --experimental-strip-types scripts/generate-repair-ticket.ts",
-    "repair:verify": "node --experimental-strip-types scripts/verify-repair-candidate.ts",
-    "validate": "npm run lint && npm run eval:rewrite && npm run eval:roots && npm run eval:repair && npm run build",
-    "preview": "vite preview",
-    "analyze:static": "node --experimental-strip-types scripts/analyze-static-html.ts"
+    "dev": "vite --host 127.0.0.1 --port 1420 --strictPort",
+    "build": "tsc && vite build",
+    "typecheck": "tsc --noEmit",
+    "tauri:dev": "PATH=\"$HOME/.cargo/bin:$PATH\" tauri dev",
+    "tauri:build": "PATH=\"$HOME/.cargo/bin:$PATH\" tauri build"
   },
   "dependencies": {
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.1",
-    "@mui/icons-material": "^9.1.1",
-    "@mui/material": "^9.1.1",
-    "@supabase/supabase-js": "^2.108.1",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "@tauri-apps/api": "^2.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "@types/node": "^24.13.2",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
-    "eslint": "^10.3.0",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-refresh": "^0.5.2",
-    "globals": "^17.6.0",
-    "parse5": "^8.0.1",
-    "typescript": "~6.0.2",
-    "typescript-eslint": "^8.59.2",
-    "vite": "^8.0.12"
+    "@tauri-apps/cli": "^2.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.0"
   }
 }

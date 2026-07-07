@@ -1,33 +1,39 @@
-# fixer.ai
+# Fixer
 
-Browser-based static analyzer for messy HTML/CSS/JS/TS project archives.
+Fixer is a local desktop AI coding cost estimator for repositories.
+
+V1 scans a local repo, computes deterministic cost/readiness scores, stores report history locally in SQLite, and shows the result in a Tauri desktop app.
+
+Fixer does not call an AI model, upload source code, rewrite files, create patches, or convert apps.
+
+## Stack
+
+- Tauri v2 desktop shell
+- React + TypeScript UI
+- Rust scanner/backend commands
+- SQLite local report history
 
 ## Run
 
 ```bash
 npm install
-npm run dev
+npm run tauri:dev
 ```
 
-Supabase auth is optional for local development. To enable it, copy `.env.example` to `.env` and fill in:
+The Tauri npm scripts explicitly add `$HOME/.cargo/bin` to `PATH` so Cargo is found even when the terminal session does not inherit Rust's shell setup.
+
+## Validate
 
 ```bash
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
-```
-
-## Current V1
-
-- Upload a `.zip` project archive.
-- Ignore dependency and build folders.
-- Parse HTML with `DOMParser`.
-- Scan CSS/JS/TS text for selectors, symbols, side effects, size, and structure.
-- Show parser facts, ranked files, clusters, extraction candidates, and copy-only guaranteed-safe changes.
-
-## Scripts
-
-```bash
-npm run lint
+npm run typecheck
 npm run build
-npm run analyze:static -- path/to/project-or-zip
+cd src-tauri && cargo check
+```
+
+## Structure
+
+```text
+src/                 React + TypeScript desktop UI
+src-tauri/           Tauri v2 shell and Rust backend
+src-tauri/src/       scanner, report schema, SQLite storage, commands
 ```

@@ -1,35 +1,39 @@
-# fixer.ai
+# Fixer
 
-React + Vite app for scanning messy web projects and finding the safest first refactor path before code is rewritten.
+Fixer is a local desktop AI coding cost estimator for repositories.
 
-## Run locally
+V1 scans a local repo, computes deterministic cost/readiness scores, stores report history locally in SQLite, and shows the result in a Tauri desktop app.
+
+Fixer does not call an AI model, upload source code, rewrite files, create patches, or convert apps.
+
+## Stack
+
+- Tauri v2 desktop shell
+- React + TypeScript UI
+- Rust scanner/backend commands
+- SQLite local report history
+
+## Run
 
 ```bash
 npm install
-npm run dev
+npm run tauri:dev
 ```
 
-## Current product surface
+The Tauri npm scripts explicitly add `$HOME/.cargo/bin` to `PATH` so Cargo is found even when the terminal session does not inherit Rust's shell setup.
 
-- Paste a GitHub repository URL.
-- Upload a compressed project export.
-- Classify the repo shape from early signals.
-- Preview structural risks and a staged repair roadmap.
-
-## First scanner targets
-
-- Lovable-style React/Vite/Supabase apps.
-- Static HTML/CSS/JS products with API backends, like Tokensmith.
-- Mixed AI-generated web repos that need stack classification before refactoring.
-
-The scanner logic starts in `src/scanner/analyzeProject.ts`. The app UI is split into React components under `src/components/`.
-
-## TokenSmith fixture
-
-TokenSmith is the first plain HTML/JS sample for the V1 analyzer. Keep the fixture local under `fixtures/tokensmith-main`; the fixture is intentionally ignored by git because it is large.
+## Validate
 
 ```bash
-npm run analyze:tokensmith
+npm run typecheck
+npm run build
+cd src-tauri && cargo check
 ```
 
-That command runs `scripts/analyze-static-html.ts`, scans `fixtures/tokensmith-main`, and writes `reports/tokensmith-static-analysis.json`. The current pass measures file size, symbols, imports, selectors, event handlers, browser/platform side effects, complexity estimates, duplicated selectors, repeated symbol names, and surface-level clusters.
+## Structure
+
+```text
+src/                 React + TypeScript desktop UI
+src-tauri/           Tauri v2 shell and Rust backend
+src-tauri/src/       scanner, report schema, SQLite storage, commands
+```

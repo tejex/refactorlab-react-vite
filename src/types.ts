@@ -1,84 +1,77 @@
-export interface ScoreDimension {
-  value: number;
-  max: number;
-  level: "low" | "medium" | "high" | "ready";
-  reasons: string[];
+export interface Scores {
+  aiExpenseScore: number;
+  aiReadinessScore: number;
+  contextBurden: number;
+  verificationDebt: number;
+  ambiguityRisk: number;
+  blastRadius: number;
+  privacyRisk: "Low" | "Medium" | "High";
+  retryRisk: "Low" | "Medium" | "High";
+  compressionOpportunityPercent: number;
+}
+
+export interface Totals {
+  totalFiles: number;
+  sourceFiles: number;
+  ignoredFiles: number;
+  estimatedSourceTokens: number;
+  filesOver8kTokens: number;
+  filesOver32kTokens: number;
+}
+
+export interface VerificationSignals {
+  hasBuildScript: boolean;
+  hasTestScript: boolean;
+  hasTypecheckScript: boolean;
+  hasLintScript: boolean;
+  hasCiConfig: boolean;
+  buildScripts: string[];
+  testScripts: string[];
+  typecheckScripts: string[];
+  lintScripts: string[];
+}
+
+export interface PrivacySignals {
+  envFiles: string[];
+  secretCandidateCount: number;
+  secretCandidateFiles: string[];
+  privateUrlCount: number;
+  findings: string[];
 }
 
 export interface LanguageStat {
   language: string;
   extension: string;
   files: number;
-  lines: number;
-  bytes: number;
-  tokenEstimate: number;
+  estimatedTokens: number;
 }
 
-export interface FileFinding {
+export interface FileSignal {
   path: string;
   language: string;
-  extension: string;
+  estimatedTokens: number;
   lineCount: number;
   sizeBytes: number;
-  tokenEstimate: number;
-  flags: string[];
-  reasons: string[];
+  signals: string[];
 }
 
 export interface CostDriver {
-  id: string;
   title: string;
-  impact: "low" | "medium" | "high";
-  reason: string;
-  evidence: string[];
-}
-
-export interface DetectedScripts {
-  build: string[];
-  test: string[];
-  typecheck: string[];
-  other: string[];
-}
-
-export interface RepoTotals {
-  files: number;
-  analyzedFiles: number;
-  ignoredFiles: number;
-  lines: number;
-  bytes: number;
-  tokenEstimate: number;
-}
-
-export interface TokenHeavyDirectory {
-  path: string;
-  tokenEstimate: number;
-  files: number;
-}
-
-export interface GeneratedVendorNoise {
-  path: string;
-  reason: string;
+  severity: "low" | "medium" | "high";
+  explanation: string;
+  affectedCount?: number | null;
 }
 
 export interface RepoScanReport {
-  sourcePath: string;
-  sourceType: string;
+  repoName: string;
+  repoPath: string;
   scannedAt: string;
-  aiExpenseScore: ScoreDimension;
-  aiReadinessScore: ScoreDimension;
-  contextBurden: ScoreDimension;
-  verificationDebt: ScoreDimension;
-  ambiguityRisk: ScoreDimension;
-  blastRadius: ScoreDimension;
-  privacyRisk: ScoreDimension;
-  topCostDrivers: CostDriver[];
-  files: FileFinding[];
+  scores: Scores;
+  totals: Totals;
+  verification: VerificationSignals;
+  privacy: PrivacySignals;
   languages: LanguageStat[];
-  totals: RepoTotals;
-  largeFiles: FileFinding[];
-  tokenHeavyDirectories: TokenHeavyDirectory[];
-  generatedVendorNoise: GeneratedVendorNoise[];
-  scripts: DetectedScripts;
-  privacyFindings: string[];
-  notes: string[];
+  expensiveFiles: FileSignal[];
+  topCostDrivers: CostDriver[];
+  ignoredPaths: string[];
 }

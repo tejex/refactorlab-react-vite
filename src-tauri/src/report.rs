@@ -2,11 +2,67 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ScoreDimension {
-    pub value: u32,
-    pub max: u32,
-    pub level: String,
-    pub reasons: Vec<String>,
+pub struct RepoScanReport {
+    pub repo_name: String,
+    pub repo_path: String,
+    pub scanned_at: String,
+    pub scores: Scores,
+    pub totals: Totals,
+    pub verification: VerificationSignals,
+    pub privacy: PrivacySignals,
+    pub languages: Vec<LanguageStat>,
+    pub expensive_files: Vec<FileSignal>,
+    pub top_cost_drivers: Vec<CostDriver>,
+    pub ignored_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Scores {
+    pub ai_expense_score: f32,
+    pub ai_readiness_score: u8,
+    pub context_burden: f32,
+    pub verification_debt: f32,
+    pub ambiguity_risk: f32,
+    pub blast_radius: f32,
+    pub privacy_risk: String,
+    pub retry_risk: String,
+    pub compression_opportunity_percent: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Totals {
+    pub total_files: usize,
+    pub source_files: usize,
+    pub ignored_files: usize,
+    pub estimated_source_tokens: usize,
+    pub files_over_8k_tokens: usize,
+    pub files_over_32k_tokens: usize,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VerificationSignals {
+    pub has_build_script: bool,
+    pub has_test_script: bool,
+    pub has_typecheck_script: bool,
+    pub has_lint_script: bool,
+    pub has_ci_config: bool,
+    pub build_scripts: Vec<String>,
+    pub test_scripts: Vec<String>,
+    pub typecheck_scripts: Vec<String>,
+    pub lint_scripts: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrivacySignals {
+    pub env_files: Vec<String>,
+    pub secret_candidate_count: usize,
+    pub secret_candidate_files: Vec<String>,
+    pub private_url_count: usize,
+    pub findings: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,132 +70,42 @@ pub struct ScoreDimension {
 pub struct LanguageStat {
     pub language: String,
     pub extension: String,
-    pub files: u32,
-    pub lines: u32,
-    pub bytes: u64,
-    pub token_estimate: u64,
+    pub files: usize,
+    pub estimated_tokens: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct FileFinding {
+pub struct FileSignal {
     pub path: String,
     pub language: String,
-    pub extension: String,
-    pub line_count: u32,
+    pub estimated_tokens: usize,
+    pub line_count: usize,
     pub size_bytes: u64,
-    pub token_estimate: u64,
-    pub flags: Vec<String>,
-    pub reasons: Vec<String>,
+    pub signals: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CostDriver {
-    pub id: String,
     pub title: String,
-    pub impact: String,
-    pub reason: String,
-    pub evidence: Vec<String>,
+    pub severity: String,
+    pub explanation: String,
+    pub affected_count: Option<usize>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DetectedScripts {
-    pub build: Vec<String>,
-    pub test: Vec<String>,
-    pub typecheck: Vec<String>,
-    pub other: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RepoTotals {
-    pub files: u32,
-    pub analyzed_files: u32,
-    pub ignored_files: u32,
-    pub lines: u32,
-    pub bytes: u64,
-    pub token_estimate: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TokenHeavyDirectory {
-    pub path: String,
-    pub token_estimate: u64,
-    pub files: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GeneratedVendorNoise {
-    pub path: String,
-    pub reason: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RepoScanReport {
-    pub source_path: String,
-    pub source_type: String,
-    pub scanned_at: String,
-    pub ai_expense_score: ScoreDimension,
-    pub ai_readiness_score: ScoreDimension,
-    pub context_burden: ScoreDimension,
-    pub verification_debt: ScoreDimension,
-    pub ambiguity_risk: ScoreDimension,
-    pub blast_radius: ScoreDimension,
-    pub privacy_risk: ScoreDimension,
-    pub top_cost_drivers: Vec<CostDriver>,
-    pub files: Vec<FileFinding>,
-    pub languages: Vec<LanguageStat>,
-    pub totals: RepoTotals,
-    pub large_files: Vec<FileFinding>,
-    pub token_heavy_directories: Vec<TokenHeavyDirectory>,
-    pub generated_vendor_noise: Vec<GeneratedVendorNoise>,
-    pub scripts: DetectedScripts,
-    pub privacy_findings: Vec<String>,
-    pub notes: Vec<String>,
-}
-
-pub fn score_dimension(value: u32, max: u32, reasons: Vec<String>) -> ScoreDimension {
-    let level = if max == 10 {
-        if value >= 7 {
-            "high"
-        } else if value >= 4 {
-            "medium"
-        } else {
-            "low"
-        }
-    } else if value >= 70 {
-        "high"
-    } else if value >= 35 {
-        "medium"
+/// Converts a numeric 0-10 risk score into the user-facing Low/Medium/High label.
+pub fn label_risk(score: f32) -> String {
+    if score >= 7.0 {
+        "High".to_string()
+    } else if score >= 4.0 {
+        "Medium".to_string()
     } else {
-        "low"
-    };
-
-    ScoreDimension {
-        value,
-        max,
-        level: level.to_string(),
-        reasons,
+        "Low".to_string()
     }
 }
 
-pub fn readiness_dimension(value: u32, reasons: Vec<String>) -> ScoreDimension {
-    let level = if value >= 78 {
-        "ready"
-    } else if value >= 52 {
-        "medium"
-    } else {
-        "high"
-    };
-    ScoreDimension {
-        value,
-        max: 100,
-        level: level.to_string(),
-        reasons,
-    }
+/// Normalizes score math to one decimal place and keeps values inside the 0-10 range.
+pub fn clamp_score(value: f32) -> f32 {
+    (value * 10.0).round().clamp(0.0, 100.0) / 10.0
 }

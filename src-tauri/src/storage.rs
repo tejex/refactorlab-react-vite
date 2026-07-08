@@ -5,6 +5,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::report::RepoScanReport;
 
+/// Persists each completed scan into the local app-data SQLite database for report history.
 pub fn save_report(
     app: &AppHandle,
     report: &RepoScanReport,
@@ -17,9 +18,10 @@ pub fn save_report(
     connection.execute(
         "create table if not exists reports (
             id integer primary key autoincrement,
-            source_path text not null,
+            repo_path text not null,
+            repo_name text not null,
             scanned_at text not null,
-            ai_expense_score integer not null,
+            ai_expense_score real not null,
             ai_readiness_score integer not null,
             report_json text not null
         )",
@@ -28,8 +30,15 @@ pub fn save_report(
 
     let json = serde_json::to_string(report)?;
     connection.execute(
-        "insert into reports (source_path, scanned_at, ai_expense_score, ai_readiness_score, report_json) values (?1, ?2, ?3, ?4, ?5)",
-        params![report.source_path, report.scanned_at, report.ai_expense_score.value, report.ai_readiness_score.value, json],
+        "insert into reports (repo_path, repo_name, scanned_at, ai_expense_score, ai_readiness_score, report_json) values (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![
+            report.repo_path,
+            report.repo_name,
+            report.scanned_at,
+            report.scores.ai_expense_score,
+            report.scores.ai_readiness_score,
+            json
+        ],
     )?;
 
     Ok(())

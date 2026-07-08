@@ -1,10 +1,19 @@
-import type { CostDriver, Totals } from "../types";
+import type { CostDriver, Scores, Totals } from "../types";
 
 export interface DisplayDriver {
   title: string;
   explanation: string;
   severity: CostDriver["severity"];
   affectedLabel: string | null;
+}
+
+export interface TokenContextMath {
+  compactContextTokens: number;
+  potentialTokensSaved: number;
+  retryMaxPasses: number;
+  retryMinPasses: number;
+  retryContextTokensMax: number;
+  retryContextTokensMin: number;
 }
 
 export function costFocusedDriver(driver: CostDriver, totals: Totals): DisplayDriver {
@@ -63,10 +72,31 @@ export function compactNumber(value: number) {
   return Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 }).format(value);
 }
 
-export function tokenCalculation(totalSourceTokens: number, contextWastePercent: number) {
-  const estimatedCompactRepoMapTokens = Math.round(totalSourceTokens * (1 - contextWastePercent / 100));
+export function retryPassRange(retryRisk: Scores["retryRisk"]) {
+  if (retryRisk === "High") return { min: 3, max: 5 };
+  if (retryRisk === "Medium") return { min: 2, max: 3 };
+  return { min: 1, max: 2 };
+}
+
+export function tokenContextMath(sourceTokens: number, contextReductionPercent: number, retryRisk: Scores["retryRisk"]): TokenContextMath {
+  const potentialTokensSaved = Math.round(sourceTokens * (contextReductionPercent / 100));
+  const compactContextTokens = Math.max(0, sourceTokens - potentialTokensSaved);
+  const { min, max } = retryPassRange(retryRisk);
+
   return {
-    estimatedCompactRepoMapTokens,
-    potentialTokensSaved: totalSourceTokens - estimatedCompactRepoMapTokens,
+    compactContextTokens,
+    potentialTokensSaved,
+    retryMaxPasses: max,
+    retryMinPasses: min,
+    retryContextTokensMax: potentialTokensSaved * max,
+    retryContextTokensMin: potentialTokensSaved * min,
+  };
+}
+
+export function tokenCalculation(totalSourceTokens: number, contextWastePercent: number) {
+  const math = tokenContextMath(totalSourceTokens, contextWastePercent, "Low");
+  return {
+    estimatedCompactRepoMapTokens: math.compactContextTokens,
+    potentialTokensSaved: math.potentialTokensSaved,
   };
 }

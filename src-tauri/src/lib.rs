@@ -79,7 +79,7 @@ fn export_payload(report: &RepoScanReport) -> ExportedReport<'_> {
         scoring_notes: vec![
             "All scores are deterministic local heuristics.",
             "No AI model call is used to generate this report.",
-            "Actual AI cost depends on model pricing, prompt shape, and task scope.",
+            "Actual token use depends on model, prompt shape, and task scope.",
         ],
     }
 }

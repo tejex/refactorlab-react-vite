@@ -55,7 +55,7 @@ export function App() {
     setExportMessage(null);
     const path = await save({
       title: "Export Fixer Report",
-      defaultPath: `${report.repoName}-fixer-report.json`,
+      defaultPath: report.repoName + "-fixer-report.json",
       filters: [{ name: "JSON", extensions: ["json"] }],
     });
 
@@ -70,7 +70,7 @@ export function App() {
   }
 
   return (
-    <main className="app-shell">
+    <main className="min-h-screen bg-background text-foreground antialiased">
       {state === "scanning" ? <ScanProgress /> : null}
 
       {state === "empty" || state === "error" ? (

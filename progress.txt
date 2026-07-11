@@ -1,0 +1,215 @@
+FIXER LOCAL PROGRESS TRACKER
+Last updated: 2026-07-10
+
+TRACKING RULE
+
+Update this file after every project code change, completed milestone, validation
+change, newly discovered gap, or change to the planned implementation order.
+Do not consider a project update complete until this tracker reflects it.
+Keep this tracker synchronized with the project-root copy at:
+  /Users/teju/Desktop/refactorlab-react-vite/progress.txt
+
+CURRENT PRODUCT DIRECTION
+
+Fixer is a local-first repository analysis and AI-context preparation tool.
+It scans a local repository deterministically, reports a small set of explainable
+measurements, and generates a compact AI-readable repository packet that the user
+can manually provide to any coding agent.
+
+Fixer is not an AI coding agent, code converter, migration tool, or replacement
+for Codex, Claude Code, Cursor, or similar products. It does not observe external
+agent activity or actual token usage.
+
+ACTIVE LOCATIONS
+
+Product documents:
+  /Users/teju/Documents/FxMySht.AI/fixer/docs/
+
+Current runnable desktop application:
+  /Users/teju/Desktop/refactorlab-react-vite
+
+Important: the runnable application currently has pre-existing uncommitted work.
+Preserve that work and inspect git status before making changes.
+
+CURRENT APPLICATION FLOW
+
+1. User chooses a local repository folder through the native Tauri picker.
+2. React invokes the Rust scan_repo command.
+3. Rust walks readable local files and excludes common dependency/build noise.
+4. Files are deterministically classified by repository-context role.
+5. Fixer calculates verification, privacy, import-graph, size, and token signals.
+6. Fixer calculates deterministic expense/readiness scores.
+7. Fixer generates a compact RepoDigest from scanner facts.
+8. The report is saved to local SQLite and displayed in React.
+9. The user can manually rescan or export the complete report as JSON.
+
+WHAT ALREADY EXISTS
+
+[x] Tauri + React local desktop application
+[x] Native local-folder selection
+[x] Rust repository scanner
+[x] Deterministic file filtering and classification
+[x] AI-context classification totals
+[x] Verification, privacy, file-size, language, and import-graph signals
+[x] Explainable deterministic score inputs
+[x] Deterministic RepoDigest generation
+[x] Potential-context-reduction arithmetic based on digest size
+[x] Local SQLite scan persistence
+[x] Manual rescan
+[x] Diagnostic JSON export
+
+KNOWN GAPS
+
+[ ] No standalone downloadable or copyable AI-readable repository packet
+[ ] Digest tokens are not counted from one final rendered packet artifact
+[ ] Token counting currently uses the fallback characters-divided-by-four method
+[ ] No repository revision manifest or content hashes
+[ ] No Current / Out of date packet status
+[ ] No reliable changed-file count since packet generation
+[ ] No automatic repository file watcher
+[ ] No loading or comparison of previous SQLite scans
+[ ] No configurable input price per one million tokens
+[ ] No estimated context-load cost scenarios
+[ ] No exact-duplicate hashing
+[ ] Excluded-context categories and token totals are incomplete
+[ ] Archive selection is documented but not implemented in the current UI
+[ ] Current packet/digest contains mostly aggregate facts and needs stronger
+    repository-understanding content
+
+WORDING THAT MUST BE CORRECTED
+
+- Replace "tokens saved" with "potentially avoidable context."
+- Replace probability-style "how likely" language with deterministic signal
+  descriptions.
+- Remove the speculative 1-5 retry-pass range.
+- Do not claim actual savings, actual spending, retry reduction, developer time
+  saved, or AI success probability.
+- Label AI-eligible context as the output of explicit classifier rules, not as an
+  objective prediction of what every agent or task will need.
+
+MILESTONE 1: DETERMINISTIC MARKDOWN REPOSITORY PACKET - COMPLETED
+
+[x] Added the Rust domain function render_repository_packet(&RepoDigest) -> String.
+[x] Produces one stable Markdown string headed by "# Repository Context."
+[x] Uses only existing RepoDigest sections and notes.
+[x] Sorts sections, section entries, and notes deterministically.
+[x] Does not render generated_at, estimated token metadata, or absolute Path facts.
+[x] Omits empty sections instead of generating placeholder content.
+[x] Handles empty and partially detected repositories.
+[x] Remains separate from scan assembly, JSON export, token counting, and UI code.
+[x] Added an exact Markdown fixture and order-independence tests.
+[x] Confirmed the existing diagnostic JSON export test remains unchanged and passes.
+
+Implementation:
+  /Users/teju/Desktop/refactorlab-react-vite/src-tauri/src/digest.rs
+  /Users/teju/Desktop/refactorlab-react-vite/src-tauri/src/lib.rs
+
+Exact-output fixture:
+  /Users/teju/Desktop/refactorlab-react-vite/src-tauri/tests/fixtures/repository_packet.md
+
+NEXT IMPLEMENTATION SLICE: COUNT TOKENS FROM THE EXACT PACKET STRING
+
+Goal: measure the exact string returned by render_repository_packet without adding
+download, copy, UI, pricing, freshness monitoring, payments, or a rewrite in the
+same change.
+
+1. Select and document one explicit tokenizer and encoding.
+2. Count the final rendered packet string once.
+3. Preserve transparent tokenization metadata and fallback behavior.
+4. Do not connect the measured count to reduction metrics yet.
+
+ORDER AFTER TOKEN COUNTING
+
+1. Add a standalone packet download/export action.
+2. Add a packet copy action if it can be supported cleanly in the current shell.
+3. Connect measured packet tokens to reduction metrics.
+4. Rename the main metrics to:
+     - AI-eligible repository context
+     - Repository-packet tokens
+     - Potentially avoidable context
+     - Potential input-token reduction
+5. Remove retry-pass predictions and non-deterministic UI claims.
+6. Keep diagnostic JSON export separate from the user-facing repository packet.
+
+EXPECTED FILES FOR PACKET V1
+
+Rust/backend:
+  src-tauri/src/digest.rs
+  src-tauri/src/report.rs
+  src-tauri/src/token_counter.rs
+  src-tauri/src/lib.rs
+  src-tauri/Cargo.toml
+
+React/frontend:
+  src/types.ts
+  src/App.tsx
+  src/components/CompactHeader.tsx
+  src/components/ReportView.tsx
+  src/components/HeroCostVerdict.tsx
+  src/components/RiskSummaryRow.tsx
+  src/components/costCopy.ts
+  src/components/BreakdownDialog.tsx
+
+Proposed new report types for later implementation:
+  RepositoryPacket
+  RepositoryRevision
+  FileFingerprint
+  PacketFreshness
+  ExcludedContextBreakdown
+  InputCostEstimate
+
+FOLLOWING IMPLEMENTATION SLICE: PACKET FRESHNESS
+
+1. Create a deterministic repository manifest from eligible file paths and hashes.
+2. Store the manifest/revision used to generate each packet.
+3. Compare the current repository manifest with the packet manifest.
+4. Report Current or Out of date.
+5. Report the number of changed files when reliably known.
+6. Add automatic watching only after comparison logic works through manual rescan.
+
+DETERMINISTIC LIMITS
+
+- Fixer cannot observe actual tokens or spending from external coding agents.
+- Fixer cannot predict agent success, retries, or task-specific context needs.
+- Token counts depend on the selected tokenizer/encoding.
+- Semantic duplication and dead code cannot be claimed from the current analyzer.
+- Exact duplicates can be added later through content hashing.
+- Packet freshness can be supported once manifests are stored and compared.
+
+LATEST VALIDATION
+
+Assessment date: 2026-07-10
+
+[pass] npm run typecheck
+[pass] cargo fmt --check
+[pass] cargo test: 16 passed, 0 failed
+[note] git diff --check reported two existing trailing-whitespace warnings in
+       src/components/ReportView.tsx
+[not run] Full frontend production build
+[not run] Full Tauri bundle build
+[not run] Visual QA
+
+CHANGE LOG
+
+2026-07-10
+- Added a synchronized progress tracker at the root of the runnable Fixer project.
+
+2026-07-10
+- Added the standing rule that this tracker must be updated after every project
+  change or progress update.
+
+2026-07-10
+- Completed Milestone 1: deterministic Markdown repository packet renderer.
+- Added exact-output, order-independence, absolute-path, empty-repository, and
+  partial-repository coverage.
+- Kept diagnostic JSON export and all UI code unchanged.
+- Selected exact packet-string token counting as the next milestone.
+
+2026-07-10
+- Confirmed the updated local-first repository-context product direction.
+- Inspected the runnable Fixer desktop application and traced its complete flow.
+- Identified existing scanner, classifier, digest, score, SQLite, rescan, and JSON
+  export capabilities.
+- Identified missing packet, freshness, tokenizer, cost, exclusion, and wording work.
+- Selected Repository Packet V1 as the smallest coherent next implementation step.
+- Created this local progress tracker. No application code was changed.

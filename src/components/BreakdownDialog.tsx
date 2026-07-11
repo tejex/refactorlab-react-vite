@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { RepoScanReport } from "../types";
-import { compactNumber, costFocusedDriver, tokenContextMath } from "./costCopy";
+import { compactNumber, costFocusedDriver, tokenContextMathFromReport, type TokenContextMath } from "./costCopy";
 
 interface BreakdownDialogProps {
   open: boolean;
@@ -11,15 +11,15 @@ interface BreakdownDialogProps {
 }
 
 export function BreakdownDialog({ open, onOpenChange, report }: BreakdownDialogProps) {
-  const sourceTokens = report.totals.estimatedSourceTokens;
-  const contextReductionPercent = report.scores.compressionOpportunityPercent;
-  const math = tokenContextMath(sourceTokens, contextReductionPercent, report.scores.retryRisk);
+  const math = tokenContextMathFromReport(report);
+  const sourceTokens = math.sourceTokens;
+  const contextReductionPercent = math.contextReductionPercent;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent aria-label="Cost breakdown">
+      <DialogContent aria-label="Fixer report">
         <DialogHeader>
-          <DialogTitle>Cost Breakdown</DialogTitle>
+          <DialogTitle>Report</DialogTitle>
           <DialogDescription>{report.repoName}</DialogDescription>
         </DialogHeader>
 
@@ -27,7 +27,12 @@ export function BreakdownDialog({ open, onOpenChange, report }: BreakdownDialogP
           <div className="grid grid-cols-2 gap-2 max-[700px]:grid-cols-1">
             <DetailList title="Score Breakdown" items={scoreBreakdownItems(report)} />
             <DetailList title="Token Calculations" items={tokenFormulaItems(sourceTokens, contextReductionPercent, math.compactContextTokens, math.potentialTokensSaved)} />
+            <DetailList title="Fixer Repo Summary" items={digestItems(report, math)} />
+            <DetailList title="Context Classification" items={classificationItems(report)} />
+            <DetailList title="Summary Buckets" items={summaryBucketItems(report)} />
+            <DetailList title="Classification Evidence" items={classificationEvidenceItems(report)} />
             <DetailList title="Retry Context Range" items={retryItems(math)} />
+            <DetailList title="Repo Graph Evidence" items={repoGraphItems(report)} />
             <DetailList title="Expensive Files" items={report.expensiveFiles.slice(0, 8).map((file) => file.path + ": " + compactNumber(file.estimatedTokens) + " tokens, " + file.lineCount.toLocaleString() + " lines")} />
             <DetailList title="Verification Signals" items={verificationItems(report)} />
             <DetailList title="Privacy Signals" items={privacyItems(report)} />
@@ -73,7 +78,7 @@ function scoreBreakdownItems(report: RepoScanReport) {
     "AI Cost Risk: " + report.scores.aiExpenseScore + "/10",
     "AI-Readiness: " + report.scores.aiReadinessScore + "/100",
     "Context burden: " + report.scores.contextBurden + "/10",
-    "Context Waste: " + report.scores.compressionOpportunityPercent + "%",
+    "Repo summary reduction: " + report.scores.compressionOpportunityPercent + "%",
     "Verification debt: " + report.scores.verificationDebt + "/10",
     "Ambiguity risk: " + report.scores.ambiguityRisk + "/10",
     "Blast radius: " + report.scores.blastRadius + "/10",
@@ -85,19 +90,127 @@ function scoreBreakdownItems(report: RepoScanReport) {
 
 function tokenFormulaItems(sourceTokens: number, contextReductionPercent: number, compactTokens: number, savedTokens: number) {
   return [
-    "sourceTokens = " + sourceTokens.toLocaleString(),
-    "contextReductionPercent = " + contextReductionPercent + "%",
-    "potentialTokensSaved = sourceTokens * contextReductionPercent / 100 = " + savedTokens.toLocaleString(),
-    "compactContextTokens = sourceTokens - potentialTokensSaved = " + compactTokens.toLocaleString(),
+    "Likely AI context tokens = " + sourceTokens.toLocaleString(),
+    "Fixer summary tokens = " + compactTokens.toLocaleString(),
+    "Tokens saved in summary = likely AI context - Fixer summary = " + savedTokens.toLocaleString(),
+    "Summary is smaller by " + contextReductionPercent + "%",
   ];
 }
 
-function retryItems(math: ReturnType<typeof tokenContextMath>) {
+
+function digestItems(report: RepoScanReport, math: TokenContextMath) {
+  const tokenization = report.tokenization;
+  const digest = report.repoDigest;
+  const tokenizationLabel = tokenization
+    ? `${tokenization.method}${tokenization.encoding ? ` / ${tokenization.encoding}` : ""}${tokenization.fallbackUsed ? " fallback" : ""}`
+    : "Not available";
+
+  const items = [
+    "Fixer summary tokens: " + compactNumber(digest?.estimatedTokens ?? math.compactContextTokens),
+    "Likely AI context: " + compactNumber(math.sourceTokens),
+    "Tokens saved in summary: " + compactNumber(math.potentialTokensSaved),
+    "Tokenization: " + tokenizationLabel,
+  ];
+
+  if (!digest) {
+    return [...items, "Fixer summary is not available for this older report."];
+  }
+
+  return [
+    ...items,
+    ...digest.sections.map((section) =>
+      `${section.title} — ${compactNumber(section.estimatedTokens)} tokens / ${compactNumber(section.budgetTokens)} budget`,
+    ),
+  ];
+}
+
+
+function classificationItems(report: RepoScanReport) {
+  const totals = report.contextClassification?.totals;
+
+  if (!totals) {
+    return ["Context classification is not available for this older report."];
+  }
+
+  return [
+    "Likely AI context: " + compactNumber(totals.defaultAiContextTokens) + " tokens / " + totals.defaultAiContextFiles.toLocaleString() + " files",
+    "Total readable text: " + compactNumber(totals.totalReadableTokens) + " tokens",
+    "Authored source: " + compactNumber(totals.authoredSourceTokens) + " tokens / " + totals.authoredSourceFiles.toLocaleString() + " files",
+    "Source-of-truth config: " + compactNumber(totals.sourceOfTruthConfigTokens) + " tokens / " + totals.sourceOfTruthConfigFiles.toLocaleString() + " files",
+    "Generated/reference files: " + compactNumber(totals.generatedReferenceTokens) + " tokens / " + totals.generatedReferenceFiles.toLocaleString() + " files",
+    "Dependency lock files: " + compactNumber(totals.dependencyLockfileTokens) + " tokens / " + totals.dependencyLockfileFiles.toLocaleString() + " files",
+    "Runtime data: " + compactNumber(totals.runtimeDataTokens) + " tokens / " + totals.runtimeDataFiles.toLocaleString() + " files",
+    "Unknown source: " + compactNumber(totals.unknownSourceTokens) + " tokens / " + totals.unknownSourceFiles.toLocaleString() + " files",
+  ];
+}
+
+function summaryBucketItems(report: RepoScanReport) {
+  const summaries = report.contextClassification?.summaries ?? [];
+
+  if (!summaries.length) {
+    return ["No summary buckets are available for this report."];
+  }
+
+  return summaries.flatMap((summary) => {
+    const sourcePaths = summary.sourcePaths.length
+      ? "source-of-truth: " + summary.sourcePaths.join(", ")
+      : "source-of-truth: none detected";
+    const files = summary.topFiles
+      .slice(0, 3)
+      .map((file) => file.path + " (" + compactNumber(file.estimatedTokens) + ")");
+
+    return [
+      summary.title + ": " + compactNumber(summary.totalTokens) + " tokens / " + summary.fileCount.toLocaleString() + " files / " + summary.contextPolicy,
+      sourcePaths,
+      ...summary.details,
+      ...files,
+    ];
+  });
+}
+
+function classificationEvidenceItems(report: RepoScanReport) {
+  const files = report.contextClassification?.files ?? [];
+
+  if (!files.length) {
+    return ["No classifier evidence is available for this older report."];
+  }
+
+  return files
+    .filter((file) => !isDefaultContextPolicy(file.classification.contextPolicy))
+    .sort((a, b) => b.estimatedTokens - a.estimatedTokens)
+    .slice(0, 12)
+    .map((file) =>
+      file.path + ": " + file.classification.role + " / " + file.classification.contextPolicy + " / " + Math.round(file.classification.confidence * 100) + "% confidence / " + file.classification.reasons.join(", "),
+    );
+}
+
+function isDefaultContextPolicy(policy: string) {
+  return policy === "include_full" || policy === "include_if_task_relevant" || policy === "include_in_default_context";
+}
+
+function retryItems(math: TokenContextMath) {
   return [
     "Retry pass range: " + math.retryMinPasses + "-" + math.retryMaxPasses,
-    "potentialAvoidableContextMin = " + math.retryContextTokensMin.toLocaleString() + " tokens",
-    "potentialAvoidableContextMax = " + math.retryContextTokensMax.toLocaleString() + " tokens",
-    "Token-only estimate for V1.",
+    "summaryTokensSavedMin = " + math.retryContextTokensMin.toLocaleString() + " tokens",
+    "summaryTokensSavedMax = " + math.retryContextTokensMax.toLocaleString() + " tokens",
+    "Token-only estimate for classifier V2.",
+  ];
+}
+
+function repoGraphItems(report: RepoScanReport) {
+  return [
+    "Total imports: " + report.repoGraph.totalImports.toLocaleString(),
+    "Relative imports: " + report.repoGraph.relativeImports.toLocaleString(),
+    "External imports: " + report.repoGraph.externalImports.toLocaleString(),
+    "Resolved imports: " + report.repoGraph.resolvedImports.toLocaleString(),
+    "Unresolved imports: " + report.repoGraph.unresolvedImports.toLocaleString(),
+    "Circular import files: " + report.repoGraph.circularImportFiles.toLocaleString(),
+    "Max fan-in: " + report.repoGraph.maxFanIn.toLocaleString(),
+    "Max fan-out: " + report.repoGraph.maxFanOut.toLocaleString(),
+    "Sensitive module refs: " + report.repoGraph.sensitiveModuleRefs.toLocaleString(),
+    ...report.repoGraph.hubFiles.map((file) =>
+      file.path + ": fan-in " + file.fanIn + ", fan-out " + file.fanOut + ", " + file.signals.join(", ")
+    ),
   ];
 }
 

@@ -58,7 +58,7 @@ export const RiskSummaryRow = ({
   retryRisk,
 }: RiskSummaryRowProps) => (
   <section
-    className="grid grid-cols-3 gap-2 max-[700px]:grid-cols-1"
+    className="grid grid-cols-3 gap-2 max-[500px]:grid-cols-1"
     aria-label="Risk summary"
   >
     <RiskCard

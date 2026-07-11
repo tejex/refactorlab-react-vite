@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -6,10 +6,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::Value;
 
+use crate::classifier::{include_in_default_context, FileClassificationInput, FileClassifier};
+
+use crate::digest::{context_estimate_from_digest, generate_repo_digest};
 use crate::report::{
-    clamp_score, label_risk, CostDriver, FileSignal, LanguageStat, PrivacySignals, RepoScanReport,
-    Scores, Totals, VerificationSignals,
+    clamp_score, label_risk, CostDriver, FileSignal, GraphFileSignal, LanguageStat, PrivacySignals,
+    RepoGraphSummary, RepoScanReport, Scores, Totals, VerificationSignals,
 };
+use crate::token_counter::{default_token_counter, TokenCounter};
 
 const SOURCE_EXTENSIONS: &[&str] = &[
     "astro", "c", "cpp", "cs", "css", "go", "graphql", "h", "html", "java", "js", "json", "jsx",
@@ -66,6 +70,7 @@ struct ScanState {
 #[derive(Default)]
 struct ScoringFacts {
     ambiguity_hits: usize,
+    graph_pressure: f32,
     shared_file_count: usize,
     privacy_score: f32,
 }
@@ -80,19 +85,53 @@ pub fn scan_repo(root: PathBuf) -> io::Result<RepoScanReport> {
     }
 
     let root = fs::canonicalize(root)?;
+    let token_counter = default_token_counter();
     let mut state = ScanState::default();
-    walk_repo(&root, &root, &mut state)?;
+    walk_repo(&root, &root, &mut state, token_counter.as_ref())?;
+
+    let classifier = FileClassifier::bundled();
+    let context_classification =
+        classifier.classify_files(state.raw_files.iter().map(|file| FileClassificationInput {
+            path: &file.path,
+            extension: &file.extension,
+            language: &file.language,
+            text: &file.text,
+            estimated_tokens: file.estimated_tokens,
+            line_count: file.line_count,
+            size_bytes: file.size_bytes,
+        }));
+    let default_context_paths = context_classification
+        .files
+        .iter()
+        .filter(|file| include_in_default_context(&file.classification))
+        .map(|file| file.path.as_str())
+        .collect::<BTreeSet<_>>();
+    let default_context_files = state
+        .raw_files
+        .iter()
+        .filter(|file| default_context_paths.contains(file.path.as_str()))
+        .cloned()
+        .collect::<Vec<_>>();
 
     let verification = detect_verification(&state.raw_files, state.has_ci_config);
     let privacy = detect_privacy(&state.raw_files);
-    let languages = language_stats(&state.raw_files);
-    let expensive_files = expensive_files(&state.raw_files);
-    let totals = totals(&state);
-    let facts = scoring_facts(&state.raw_files, &privacy);
+    let repo_graph = repo_graph(&default_context_files);
+    let languages = language_stats(&default_context_files);
+    let expensive_files = expensive_files(&default_context_files);
+    let totals = totals(&state, &default_context_files);
+    let facts = scoring_facts(&default_context_files, &privacy, &repo_graph);
     let scores = score_report(&totals, &verification, &facts);
-    let top_cost_drivers = cost_drivers(&totals, &verification, &privacy, &facts, &expensive_files);
+    let top_cost_drivers = cost_drivers(
+        &totals,
+        &verification,
+        &privacy,
+        &facts,
+        &expensive_files,
+        &repo_graph,
+        &context_classification,
+    );
 
-    Ok(RepoScanReport {
+    let mut report = RepoScanReport {
         repo_name: root
             .file_name()
             .map(|value| value.to_string_lossy().to_string())
@@ -103,15 +142,33 @@ pub fn scan_repo(root: PathBuf) -> io::Result<RepoScanReport> {
         totals,
         verification,
         privacy,
+        repo_graph,
         languages,
         expensive_files,
         top_cost_drivers,
         ignored_paths: state.ignored_paths,
-    })
+        context_classification,
+        tokenization: token_counter.method(),
+        repo_digest: None,
+        context_estimate: None,
+    };
+
+    let repo_digest = generate_repo_digest(&report, token_counter.as_ref());
+    let context_estimate = context_estimate_from_digest(&report, &repo_digest);
+    report.scores.compression_opportunity_percent = context_estimate.potentially_avoidable_percent;
+    report.repo_digest = Some(repo_digest);
+    report.context_estimate = Some(context_estimate);
+
+    Ok(report)
 }
 
 /// Recursively walks the selected repo, collecting readable source files and counting ignored noise.
-fn walk_repo(root: &Path, current: &Path, state: &mut ScanState) -> io::Result<()> {
+fn walk_repo(
+    root: &Path,
+    current: &Path,
+    state: &mut ScanState,
+    token_counter: &dyn TokenCounter,
+) -> io::Result<()> {
     for entry in fs::read_dir(current)? {
         let entry = entry?;
         let path = entry.path();
@@ -139,7 +196,7 @@ fn walk_repo(root: &Path, current: &Path, state: &mut ScanState) -> io::Result<(
         }
 
         if file_type.is_dir() {
-            walk_repo(root, &path, state)?;
+            walk_repo(root, &path, state, token_counter)?;
             continue;
         }
 
@@ -172,7 +229,7 @@ fn walk_repo(root: &Path, current: &Path, state: &mut ScanState) -> io::Result<(
         } else {
             text.lines().count()
         };
-        let estimated_tokens = estimate_tokens(&text);
+        let estimated_tokens = token_counter.count(&text);
         state.raw_files.push(RawFile {
             path: relative,
             language: language_for(&extension).to_string(),
@@ -283,6 +340,342 @@ fn detect_privacy(raw_files: &[RawFile]) -> PrivacySignals {
     privacy
 }
 
+/// Builds a lightweight import/dependency graph from deterministic source text patterns.
+fn repo_graph(raw_files: &[RawFile]) -> RepoGraphSummary {
+    let known_paths = raw_files
+        .iter()
+        .map(|file| file.path.clone())
+        .collect::<BTreeSet<_>>();
+    let mut summary = RepoGraphSummary::default();
+    let mut adjacency: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    let mut fan_in: BTreeMap<String, usize> = BTreeMap::new();
+    let mut fan_out: BTreeMap<String, usize> = BTreeMap::new();
+    let mut sensitive_by_file: BTreeMap<String, usize> = BTreeMap::new();
+
+    for file in raw_files {
+        let specifiers = import_specifiers(file);
+        if specifiers.is_empty() {
+            continue;
+        }
+
+        summary.total_imports += specifiers.len();
+        fan_out.insert(file.path.clone(), specifiers.len());
+
+        for specifier in specifiers {
+            if is_sensitive_module_ref(&specifier) {
+                summary.sensitive_module_refs += 1;
+                *sensitive_by_file.entry(file.path.clone()).or_default() += 1;
+            }
+
+            if is_relative_import(&specifier) {
+                summary.relative_imports += 1;
+                if let Some(resolved) =
+                    resolve_relative_import(&file.path, &specifier, &known_paths)
+                {
+                    summary.resolved_imports += 1;
+                    *fan_in.entry(resolved.clone()).or_default() += 1;
+                    adjacency
+                        .entry(file.path.clone())
+                        .or_default()
+                        .push(resolved);
+                } else {
+                    summary.unresolved_imports += 1;
+                }
+            } else {
+                summary.external_imports += 1;
+            }
+        }
+    }
+
+    let circular_files = circular_import_files(&adjacency);
+    summary.circular_import_files = circular_files.len();
+    summary.max_fan_in = fan_in.values().copied().max().unwrap_or(0);
+    summary.max_fan_out = fan_out.values().copied().max().unwrap_or(0);
+
+    let mut hub_files = raw_files
+        .iter()
+        .filter_map(|file| {
+            let fan_in_count = fan_in.get(&file.path).copied().unwrap_or(0);
+            let fan_out_count = fan_out.get(&file.path).copied().unwrap_or(0);
+            let sensitive_count = sensitive_by_file.get(&file.path).copied().unwrap_or(0);
+            let mut signals = Vec::new();
+
+            if fan_in_count >= 5 {
+                signals.push("high-fan-in".to_string());
+            }
+            if fan_out_count >= 10 {
+                signals.push("high-fan-out".to_string());
+            }
+            if circular_files.contains(&file.path) {
+                signals.push("circular-import".to_string());
+            }
+            if sensitive_count > 0 {
+                signals.push("sensitive-module-reference".to_string());
+            }
+
+            (!signals.is_empty()).then(|| GraphFileSignal {
+                path: file.path.clone(),
+                fan_in: fan_in_count,
+                fan_out: fan_out_count,
+                signals,
+            })
+        })
+        .collect::<Vec<_>>();
+
+    hub_files.sort_by(|a, b| {
+        let a_total = a.fan_in + a.fan_out;
+        let b_total = b.fan_in + b.fan_out;
+        b_total.cmp(&a_total).then_with(|| a.path.cmp(&b.path))
+    });
+    hub_files.truncate(8);
+    summary.hub_files = hub_files;
+    summary
+}
+
+/// Extracts import-like specifiers with low-cost language-specific string parsing.
+fn import_specifiers(file: &RawFile) -> Vec<String> {
+    match file.extension.as_str() {
+        "astro" | "js" | "jsx" | "svelte" | "ts" | "tsx" | "vue" => js_like_imports(&file.text),
+        "css" | "scss" => css_imports(&file.text),
+        "py" => python_imports(&file.text),
+        "rs" => rust_imports(&file.text),
+        _ => Vec::new(),
+    }
+}
+
+fn js_like_imports(text: &str) -> Vec<String> {
+    let mut imports = Vec::new();
+
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("//") || trimmed.starts_with("/*") {
+            continue;
+        }
+
+        if (trimmed.starts_with("import ") || trimmed.starts_with("export "))
+            && trimmed.contains(" from ")
+        {
+            if let Some(index) = trimmed.find(" from ") {
+                push_quoted(&mut imports, &trimmed[index + 6..]);
+            }
+        } else if trimmed.starts_with("import ") {
+            push_quoted(&mut imports, trimmed);
+        }
+
+        if let Some(specifier) = quoted_after(trimmed, "require(") {
+            imports.push(specifier);
+        }
+        if let Some(specifier) = quoted_after(trimmed, "import(") {
+            imports.push(specifier);
+        }
+    }
+
+    imports
+}
+
+fn css_imports(text: &str) -> Vec<String> {
+    text.lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            trimmed
+                .starts_with("@import")
+                .then(|| first_quoted(trimmed))
+                .flatten()
+        })
+        .collect()
+}
+
+fn python_imports(text: &str) -> Vec<String> {
+    let mut imports = Vec::new();
+
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('#') {
+            continue;
+        }
+
+        if let Some(rest) = trimmed.strip_prefix("import ") {
+            for part in rest.split(',') {
+                if let Some(name) = part.split_whitespace().next() {
+                    imports.push(name.to_string());
+                }
+            }
+        } else if let Some(rest) = trimmed.strip_prefix("from ") {
+            if let Some(name) = rest.split_whitespace().next() {
+                imports.push(name.to_string());
+            }
+        }
+    }
+
+    imports
+}
+
+fn rust_imports(text: &str) -> Vec<String> {
+    let mut imports = Vec::new();
+
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("//") {
+            continue;
+        }
+
+        if let Some(rest) = trimmed.strip_prefix("use ") {
+            imports.push(rest.trim_end_matches(';').to_string());
+        } else if let Some(rest) = trimmed.strip_prefix("mod ") {
+            imports.push(rest.trim_end_matches(';').to_string());
+        }
+    }
+
+    imports
+}
+
+fn push_quoted(imports: &mut Vec<String>, value: &str) {
+    if let Some(specifier) = first_quoted(value) {
+        imports.push(specifier);
+    }
+}
+
+fn quoted_after(value: &str, marker: &str) -> Option<String> {
+    value
+        .find(marker)
+        .and_then(|index| first_quoted(&value[index + marker.len()..]))
+}
+
+fn first_quoted(value: &str) -> Option<String> {
+    let mut chars = value.char_indices();
+    while let Some((start, quote)) = chars.next() {
+        if quote != '\'' && quote != '"' {
+            continue;
+        }
+        let content_start = start + quote.len_utf8();
+        let rest = &value[content_start..];
+        let Some(end) = rest.find(quote) else {
+            continue;
+        };
+        return Some(rest[..end].to_string());
+    }
+    None
+}
+
+fn is_relative_import(specifier: &str) -> bool {
+    specifier.starts_with("./") || specifier.starts_with("../")
+}
+
+fn resolve_relative_import(
+    from_path: &str,
+    specifier: &str,
+    known_paths: &BTreeSet<String>,
+) -> Option<String> {
+    let parent = from_path
+        .rsplit_once('/')
+        .map(|(parent, _)| parent)
+        .unwrap_or("");
+    let joined = normalize_import_path(parent, specifier);
+    let mut candidates = vec![joined.clone()];
+    let extensions = [
+        "ts", "tsx", "js", "jsx", "json", "css", "scss", "vue", "svelte", "astro",
+    ];
+
+    for extension in extensions {
+        candidates.push(format!("{joined}.{extension}"));
+    }
+    for extension in extensions {
+        candidates.push(format!("{joined}/index.{extension}"));
+    }
+
+    candidates
+        .into_iter()
+        .find(|candidate| known_paths.contains(candidate))
+}
+
+fn normalize_import_path(parent: &str, specifier: &str) -> String {
+    let combined = if parent.is_empty() {
+        specifier.to_string()
+    } else {
+        format!("{parent}/{specifier}")
+    };
+    let mut parts = Vec::new();
+
+    for part in combined.split('/') {
+        match part {
+            "" | "." => {}
+            ".." => {
+                parts.pop();
+            }
+            value => parts.push(value),
+        }
+    }
+
+    parts.join("/")
+}
+
+fn circular_import_files(adjacency: &BTreeMap<String, Vec<String>>) -> BTreeSet<String> {
+    let mut state = BTreeMap::new();
+    let mut stack = Vec::new();
+    let mut circular = BTreeSet::new();
+
+    for node in adjacency.keys() {
+        if state.get(node).copied().unwrap_or(0) == 0 {
+            visit_import_node(node, adjacency, &mut state, &mut stack, &mut circular);
+        }
+    }
+
+    circular
+}
+
+fn visit_import_node(
+    node: &str,
+    adjacency: &BTreeMap<String, Vec<String>>,
+    state: &mut BTreeMap<String, u8>,
+    stack: &mut Vec<String>,
+    circular: &mut BTreeSet<String>,
+) {
+    state.insert(node.to_string(), 1);
+    stack.push(node.to_string());
+
+    if let Some(neighbors) = adjacency.get(node) {
+        for neighbor in neighbors {
+            match state.get(neighbor).copied().unwrap_or(0) {
+                0 => visit_import_node(neighbor, adjacency, state, stack, circular),
+                1 => {
+                    if let Some(index) = stack.iter().position(|path| path == neighbor) {
+                        for path in &stack[index..] {
+                            circular.insert(path.clone());
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    stack.pop();
+    state.insert(node.to_string(), 2);
+}
+
+fn is_sensitive_module_ref(specifier: &str) -> bool {
+    let lowered = specifier.to_lowercase();
+    lowered.contains("auth")
+        || lowered.contains("secret")
+        || lowered.contains("token")
+        || lowered.contains("credential")
+        || lowered.contains("password")
+        || lowered.contains("env")
+        || lowered.contains("config")
+        || lowered.contains("api-key")
+        || lowered.contains("apikey")
+}
+
+fn graph_pressure(repo_graph: &RepoGraphSummary) -> f32 {
+    clamp_score(
+        repo_graph.max_fan_in as f32 / 5.0
+            + repo_graph.max_fan_out as f32 / 8.0
+            + repo_graph.circular_import_files as f32 * 0.9
+            + repo_graph.unresolved_imports as f32 / 30.0
+            + repo_graph.hub_files.len() as f32 * 0.35,
+    )
+}
+
 /// Groups scanned source files by language so the report can show the dominant stacks.
 fn language_stats(raw_files: &[RawFile]) -> Vec<LanguageStat> {
     let mut stats: BTreeMap<String, LanguageStat> = BTreeMap::new();
@@ -346,24 +739,21 @@ fn file_signal(file: &RawFile) -> FileSignal {
 }
 
 /// Summarizes repo-wide file and token totals used by score cards and export JSON.
-fn totals(state: &ScanState) -> Totals {
-    let files_over_8k_tokens = state
-        .raw_files
+fn totals(state: &ScanState, default_context_files: &[RawFile]) -> Totals {
+    let files_over_8k_tokens = default_context_files
         .iter()
         .filter(|file| file.estimated_tokens >= 8_000)
         .count();
-    let files_over_32k_tokens = state
-        .raw_files
+    let files_over_32k_tokens = default_context_files
         .iter()
         .filter(|file| file.estimated_tokens >= 32_000)
         .count();
 
     Totals {
         total_files: state.total_files,
-        source_files: state.raw_files.len(),
+        source_files: default_context_files.len(),
         ignored_files: state.ignored_files,
-        estimated_source_tokens: state
-            .raw_files
+        estimated_source_tokens: default_context_files
             .iter()
             .map(|file| file.estimated_tokens)
             .sum(),
@@ -373,7 +763,11 @@ fn totals(state: &ScanState) -> Totals {
 }
 
 /// Precomputes reusable counts that feed multiple deterministic scoring dimensions.
-fn scoring_facts(raw_files: &[RawFile], privacy: &PrivacySignals) -> ScoringFacts {
+fn scoring_facts(
+    raw_files: &[RawFile],
+    privacy: &PrivacySignals,
+    repo_graph: &RepoGraphSummary,
+) -> ScoringFacts {
     let ambiguity_hits = raw_files
         .iter()
         .map(|file| ambiguity_count(&file.text))
@@ -384,10 +778,12 @@ fn scoring_facts(raw_files: &[RawFile], privacy: &PrivacySignals) -> ScoringFact
         .count();
     let privacy_score = (privacy.env_files.len() as f32 * 1.4)
         + (privacy.secret_candidate_count as f32 * 0.8)
-        + (privacy.private_url_count as f32 * 0.3);
+        + (privacy.private_url_count as f32 * 0.3)
+        + (repo_graph.sensitive_module_refs as f32 * 0.15);
 
     ScoringFacts {
         ambiguity_hits,
+        graph_pressure: graph_pressure(repo_graph),
         shared_file_count,
         privacy_score: privacy_score.min(10.0),
     }
@@ -403,7 +799,8 @@ fn score_report(
         totals.estimated_source_tokens as f32 / 24_000.0
             + totals.files_over_8k_tokens as f32 * 0.8
             + totals.files_over_32k_tokens as f32 * 1.8
-            + totals.source_files as f32 / 800.0,
+            + totals.source_files as f32 / 800.0
+            + facts.graph_pressure * 0.15,
     );
 
     let verification_debt = clamp_score(
@@ -430,7 +827,8 @@ fn score_report(
     let blast_radius = clamp_score(
         facts.shared_file_count as f32 * 0.45
             + totals.files_over_8k_tokens as f32 * 0.8
-            + totals.files_over_32k_tokens as f32 * 1.5,
+            + totals.files_over_32k_tokens as f32 * 1.5
+            + facts.graph_pressure * 0.6,
     );
     let privacy_numeric = clamp_score(facts.privacy_score);
     let ai_expense_score = clamp_score(
@@ -441,13 +839,15 @@ fn score_report(
             + privacy_numeric * 0.10,
     );
     let ai_readiness_score = (100.0 - ai_expense_score * 10.0).round().clamp(0.0, 100.0) as u8;
-    let retry_risk = if verification_debt >= 6.5 || ai_expense_score >= 7.0 {
-        "High"
-    } else if verification_debt >= 3.5 || ai_expense_score >= 4.5 {
-        "Medium"
-    } else {
-        "Low"
-    };
+    let retry_risk =
+        if verification_debt >= 6.5 || ai_expense_score >= 7.0 || facts.graph_pressure >= 7.5 {
+            "High"
+        } else if verification_debt >= 3.5 || ai_expense_score >= 4.5 || facts.graph_pressure >= 4.0
+        {
+            "Medium"
+        } else {
+            "Low"
+        };
 
     Scores {
         ai_expense_score,
@@ -469,6 +869,8 @@ fn cost_drivers(
     privacy: &PrivacySignals,
     facts: &ScoringFacts,
     expensive_files: &[FileSignal],
+    repo_graph: &RepoGraphSummary,
+    context_classification: &crate::report::ContextClassification,
 ) -> Vec<CostDriver> {
     let mut drivers = Vec::new();
 
@@ -521,6 +923,54 @@ fn cost_drivers(
         });
     }
 
+    let generated_or_dependency_tokens = context_classification.totals.generated_reference_tokens
+        + context_classification.totals.dependency_lockfile_tokens;
+    if generated_or_dependency_tokens >= 10_000 {
+        drivers.push(CostDriver {
+            title: "Generated or dependency context can inflate scans".to_string(),
+            severity: if generated_or_dependency_tokens >= 75_000 {
+                "high"
+            } else {
+                "medium"
+            }
+            .to_string(),
+            explanation: format!(
+                "{} generated/reference or dependency-lockfile tokens are summarized instead of counted as likely AI context.",
+                generated_or_dependency_tokens
+            ),
+            affected_count: Some(
+                context_classification.totals.generated_reference_files
+                    + context_classification.totals.dependency_lockfile_files,
+            ),
+        });
+    }
+
+    if facts.graph_pressure >= 3.5 {
+        drivers.push(CostDriver {
+            title: "Import graph may amplify AI changes".to_string(),
+            severity: if facts.graph_pressure >= 7.0 {
+                "high"
+            } else {
+                "medium"
+            }
+            .to_string(),
+            explanation: format!(
+                "{} resolved imports, max fan-in {}, max fan-out {}, and {} circular import files.",
+                repo_graph.resolved_imports,
+                repo_graph.max_fan_in,
+                repo_graph.max_fan_out,
+                repo_graph.circular_import_files
+            ),
+            affected_count: Some(
+                repo_graph
+                    .hub_files
+                    .len()
+                    .max(repo_graph.circular_import_files)
+                    .max(repo_graph.unresolved_imports),
+            ),
+        });
+    }
+
     if facts.shared_file_count > 0 || !expensive_files.is_empty() {
         drivers.push(CostDriver {
             title: "Changes may have wide blast radius".to_string(),
@@ -557,7 +1007,7 @@ fn cost_drivers(
         });
     }
 
-    drivers.truncate(5);
+    drivers.truncate(6);
     drivers
 }
 
@@ -681,11 +1131,6 @@ fn relative_path(root: &Path, path: &Path) -> String {
         .unwrap_or(path)
         .to_string_lossy()
         .replace('\\', "/")
-}
-
-/// Estimates source context size with the simple V1 heuristic of roughly four chars per token.
-fn estimate_tokens(text: &str) -> usize {
-    (text.len() / 4).max(1)
 }
 
 /// Counts dynamic/runtime patterns that can make AI code changes harder to reason about.

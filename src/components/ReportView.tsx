@@ -1,7 +1,10 @@
+import { useState } from "react";
+import { BreakdownDialog } from "./BreakdownDialog";
 import { CompactHeader } from "./CompactHeader";
+import { FooterActions } from "./FooterActions";
 import { HeroCostVerdict } from "./HeroCostVerdict";
 import { RiskSummaryRow } from "./RiskSummaryRow";
-import { tokenContextMath } from "./costCopy";
+import { tokenContextMathFromReport } from "./costCopy";
 import type { RepoScanReport } from "../types";
 
 interface ReportViewProps {
@@ -12,10 +15,9 @@ interface ReportViewProps {
   onRescan: () => void;
 }
 
-export function ReportView({ report, onExport, onRescan }: ReportViewProps) {
-  const sourceTokens = report.totals.estimatedSourceTokens;
-  const contextReductionPercent = report.scores.compressionOpportunityPercent;
-  const math = tokenContextMath(sourceTokens, contextReductionPercent, report.scores.retryRisk);
+export function ReportView({ exportMessage, onChooseAnother, onExport, onRescan, report }: ReportViewProps) {
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
+  const math = tokenContextMathFromReport(report);
 
   return (
     <section className="mx-auto grid h-screen w-[min(810px,calc(100vw-20px))] content-center gap-2 p-2 max-[780px]:h-auto max-[780px]:content-start">
@@ -23,9 +25,9 @@ export function ReportView({ report, onExport, onRescan }: ReportViewProps) {
 
       <HeroCostVerdict
         compactContextTokens={math.compactContextTokens}
-        contextReductionPercent={contextReductionPercent}
+        contextReductionPercent={math.contextReductionPercent}
         potentialTokensSaved={math.potentialTokensSaved}
-        sourceTokens={sourceTokens}
+        sourceTokens={math.sourceTokens}
       />
 
       <RiskSummaryRow
@@ -33,6 +35,15 @@ export function ReportView({ report, onExport, onRescan }: ReportViewProps) {
         privacyRisk={report.scores.privacyRisk}
         retryRisk={report.scores.retryRisk}
       />
+      
+      <FooterActions
+        exportMessage={exportMessage}
+        onChooseAnother={onChooseAnother}
+        onViewDetails={() => setBreakdownOpen(true)}
+      />
+     
+
+      <BreakdownDialog open={breakdownOpen} report={report} onOpenChange={setBreakdownOpen} />
     </section>
   );
 }

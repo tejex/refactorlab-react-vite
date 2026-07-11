@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::token_counter::TokenizationMetadata;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RepoScanReport {
@@ -10,10 +12,124 @@ pub struct RepoScanReport {
     pub totals: Totals,
     pub verification: VerificationSignals,
     pub privacy: PrivacySignals,
+    pub repo_graph: RepoGraphSummary,
     pub languages: Vec<LanguageStat>,
     pub expensive_files: Vec<FileSignal>,
     pub top_cost_drivers: Vec<CostDriver>,
     pub ignored_paths: Vec<String>,
+    #[serde(default)]
+    pub context_classification: ContextClassification,
+    #[serde(default = "crate::token_counter::default_tokenization_metadata")]
+    pub tokenization: TokenizationMetadata,
+    #[serde(default)]
+    pub repo_digest: Option<RepoDigest>,
+    #[serde(default)]
+    pub context_estimate: Option<ContextEstimate>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextClassification {
+    pub version: String,
+    pub totals: ClassificationTotals,
+    pub summaries: Vec<ContextSummary>,
+    pub files: Vec<ClassifiedFile>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClassificationTotals {
+    pub total_readable_tokens: usize,
+    pub default_ai_context_tokens: usize,
+    pub default_ai_context_files: usize,
+    pub authored_source_tokens: usize,
+    pub authored_source_files: usize,
+    pub source_of_truth_config_tokens: usize,
+    pub source_of_truth_config_files: usize,
+    pub generated_reference_tokens: usize,
+    pub generated_reference_files: usize,
+    pub dependency_lockfile_tokens: usize,
+    pub dependency_lockfile_files: usize,
+    pub build_output_tokens: usize,
+    pub build_output_files: usize,
+    pub vendored_dependency_tokens: usize,
+    pub vendored_dependency_files: usize,
+    pub runtime_data_tokens: usize,
+    pub runtime_data_files: usize,
+    pub unknown_source_tokens: usize,
+    pub unknown_source_files: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextSummary {
+    pub id: String,
+    pub title: String,
+    pub role: String,
+    pub context_policy: String,
+    pub total_tokens: usize,
+    pub file_count: usize,
+    pub source_paths: Vec<String>,
+    pub top_files: Vec<ContextSummaryFile>,
+    pub details: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextSummaryFile {
+    pub path: String,
+    pub estimated_tokens: usize,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClassifiedFile {
+    pub path: String,
+    pub language: String,
+    pub estimated_tokens: usize,
+    pub line_count: usize,
+    pub size_bytes: u64,
+    pub classification: FileClassification,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileClassification {
+    pub role: String,
+    pub context_policy: String,
+    pub confidence: f32,
+    pub reasons: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoDigest {
+    pub generated_at: String,
+    pub estimated_tokens: usize,
+    pub sections: Vec<RepoDigestSection>,
+    pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoDigestSection {
+    pub id: String,
+    pub title: String,
+    pub content: String,
+    pub estimated_tokens: usize,
+    pub budget_tokens: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextEstimate {
+    pub broad_source_tokens: usize,
+    pub digest_tokens: usize,
+    pub potentially_avoidable_tokens: usize,
+    pub potentially_avoidable_percent: u8,
+    pub basis: String,
+    pub notes: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,6 +179,30 @@ pub struct PrivacySignals {
     pub secret_candidate_files: Vec<String>,
     pub private_url_count: usize,
     pub findings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoGraphSummary {
+    pub total_imports: usize,
+    pub relative_imports: usize,
+    pub external_imports: usize,
+    pub resolved_imports: usize,
+    pub unresolved_imports: usize,
+    pub circular_import_files: usize,
+    pub max_fan_in: usize,
+    pub max_fan_out: usize,
+    pub sensitive_module_refs: usize,
+    pub hub_files: Vec<GraphFileSignal>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphFileSignal {
+    pub path: String,
+    pub fan_in: usize,
+    pub fan_out: usize,
+    pub signals: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

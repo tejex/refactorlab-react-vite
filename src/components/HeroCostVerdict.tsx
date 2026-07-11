@@ -16,7 +16,7 @@ interface HeroCostVerdictProps {
   sourceTokens: number;
 }
 
-type TokenLabelTone = "danger" | "success" | "highlight";
+type TokenLabelTone = "broad" | "compact" | "highlight";
 
 interface TokenLabelProps {
   label: string;
@@ -29,13 +29,13 @@ interface InfoTooltipProps {
 }
 
 const tokenLabelStyles: Record<TokenLabelTone, { text: string; bar: string }> = {
-  danger: {
-    text: "text-orange-500",
-    bar: "bg-orange-500",
+  broad: {
+    text: "text-zinc-100",
+    bar: "bg-zinc-500",
   },
-  success: {
-    text: "text-emerald-500",
-    bar: "bg-emerald-500",
+  compact: {
+    text: "text-zinc-300",
+    bar: "bg-zinc-700",
   },
   highlight: {
     text: "text-violet-500",
@@ -43,31 +43,17 @@ const tokenLabelStyles: Record<TokenLabelTone, { text: string; bar: string }> = 
   },
 };
 
-const getWasteBadgeStyles = (percent: number) => {
-  if (percent >= 70) {
-    return "border-red-500/25 bg-red-500/10 text-red-500";
-  }
-
-  if (percent >= 45) {
-    return "border-orange-500/25 bg-orange-500/10 text-orange-500";
-  }
-
-  if (percent >= 25) {
-    return "border-yellow-500/25 bg-yellow-500/10 text-yellow-500";
-  }
-
-  return "border-emerald-500/25 bg-emerald-500/10 text-emerald-500";
-};
-
-const getWasteBadge = (percent: number) => {
-  if (percent >= 70) return "High waste";
-  if (percent >= 45) return "Moderate waste";
-  if (percent >= 25) return "Some waste";
-
-  return "Low waste";
-};
-
 const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
+
+const conservativePercent = (value: number, compactContextTokens: number) => {
+  const percent = Math.floor(clampPercent(value));
+
+  if (compactContextTokens > 0) {
+    return Math.min(percent, 99);
+  }
+
+  return percent;
+};
 
 export const HeroCostVerdict = ({
   compactContextTokens,
@@ -80,32 +66,28 @@ export const HeroCostVerdict = ({
       ? clampPercent((compactContextTokens / sourceTokens) * 100)
       : 0;
 
-  const wastePercent = Math.round(
+  const avoidablePercent = conservativePercent(
     sourceTokens > 0
-      ? clampPercent((potentialTokensSaved / sourceTokens) * 100)
-      : clampPercent(contextReductionPercent),
+      ? (potentialTokensSaved / sourceTokens) * 100
+      : contextReductionPercent,
+    compactContextTokens,
   );
 
-  const wasteBadge = getWasteBadge(wastePercent);
-  const wasteBadgeStyles = getWasteBadgeStyles(wastePercent);
-
   return (
-    <Card className="overflow-hidden shadow-sm" aria-label="Potential token waste">
+    <Card className="overflow-hidden shadow-sm" aria-label="Repo summary size check">
       <CardContent className="grid min-h-[170px] gap-4 p-4">
         <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)] gap-4 max-[700px]:grid-cols-1">
           <div className="grid content-center gap-2">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[11px] font-bold uppercase text-muted-foreground">
-                Potentially Avoidable AI Context
+                Repo Summary Size Check
               </span>
 
-              <span
-                className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${wasteBadgeStyles}`}
-              >
-                {wasteBadge}
+              <span className="rounded-full border border-violet-500/25 bg-violet-500/10 px-2 py-0.5 text-[10px] font-bold uppercase text-violet-400">
+                {avoidablePercent}% smaller summary
               </span>
 
-              <InfoTooltip text="Estimated repo context that may not need to be sent to the AI after Fixer tightens the input." />
+              <InfoTooltip text="How much smaller Fixer's repo summary is than the likely AI context." />
             </div>
 
             <strong className="truncate text-[34px] font-semibold leading-none tracking-normal text-violet-500">
@@ -113,34 +95,34 @@ export const HeroCostVerdict = ({
             </strong>
 
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Fixer estimates {wastePercent}% of this repo pass may be unnecessary for the AI.
+              Fixer made a smaller repo summary from the files an AI would likely inspect first.
             </p>
           </div>
 
           <div className="grid content-center gap-3">
             <Progress
-              value={wastePercent}
+              value={avoidablePercent}
               segmentCount={44}
               className="h-7"
-              aria-label="Potential AI context savings from using Fixer"
+              aria-label="Repo summary size check"
             />
           <div className="flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
             <LegendItem
               colorClassName="bg-violet-500"
-              label={`${wastePercent}% unnecessary context`}
+              label={`${avoidablePercent}% smaller summary`}
             />
             <LegendItem
               colorClassName="bg-zinc-800/70"
-              label={`${100 - wastePercent}% still needed`}
+              label={`${100 - avoidablePercent}% kept in summary`}
             />
           </div>
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2 max-[700px]:grid-cols-1">
-          <TokenLabel label="Without Fixer" value={sourceTokens} tone="danger" />
-          <TokenLabel label="After Fixer" value={compactContextTokens} tone="success" />
-          <TokenLabel label="Avoided by Fixer" value={potentialTokensSaved} tone="highlight" />
+          <TokenLabel label="Likely AI context" value={sourceTokens} tone="broad" />
+          <TokenLabel label="Fixer summary" value={compactContextTokens} tone="compact" />
+          <TokenLabel label="Tokens saved in summary" value={potentialTokensSaved} tone="highlight" />
         </div>
       </CardContent>
     </Card>
@@ -165,21 +147,6 @@ const TokenLabel = ({ label, value, tone }: TokenLabelProps) => {
   );
 };
 
-const getSavingsGradient = (percent: number) => {
-  if (percent >= 70) {
-    return "bg-gradient-to-r from-violet-500 to-fuchsia-500";
-  }
-
-  if (percent >= 45) {
-    return "bg-gradient-to-r from-blue-500 to-violet-500";
-  }
-
-  if (percent >= 25) {
-    return "bg-gradient-to-r from-emerald-500 to-blue-500";
-  }
-
-  return "bg-gradient-to-r from-zinc-500 to-emerald-500";
-};
 
 const LegendItem = ({
   colorClassName,

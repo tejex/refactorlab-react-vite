@@ -43,6 +43,13 @@ CURRENT APPLICATION FLOW
 8. The report is saved to local SQLite and displayed in React.
 9. The user can manually rescan or export the complete report as JSON.
 
+WINDOW BEHAVIOR
+
+[x] Desktop window is fixed at 1100 x 620 logical pixels.
+[x] Minimum and maximum dimensions both match 1100 x 620.
+[x] Manual resizing, maximizing/zooming, and fullscreen startup are disabled.
+[x] Main report surface is capped at 1040 pixels so three-column content fits.
+
 WHAT ALREADY EXISTS
 
 [x] Tauri + React local desktop application
@@ -61,8 +68,9 @@ WHAT ALREADY EXISTS
 KNOWN GAPS
 
 [ ] No standalone downloadable or copyable AI-readable repository packet
-[ ] Digest tokens are not counted from one final rendered packet artifact
-[ ] Token counting currently uses the fallback characters-divided-by-four method
+[x] Final packet tokens are counted from the exact rendered Markdown artifact
+[x] AI-eligible files and the packet use tiktoken-rs with o200k_base
+[x] Characters-divided-by-four remains only as a labeled shared fallback
 [ ] No repository revision manifest or content hashes
 [ ] No Current / Out of date packet status
 [ ] No reliable changed-file count since packet generation
@@ -107,29 +115,33 @@ Implementation:
 Exact-output fixture:
   /Users/teju/Desktop/refactorlab-react-vite/src-tauri/tests/fixtures/repository_packet.md
 
-NEXT IMPLEMENTATION SLICE: COUNT TOKENS FROM THE EXACT PACKET STRING
+MILESTONE 2: UNIFIED DETERMINISTIC TOKEN ACCOUNTING - COMPLETED
 
-Goal: measure the exact string returned by render_repository_packet without adding
-download, copy, UI, pricing, freshness monitoring, payments, or a rewrite in the
-same change.
+[x] Selected and documented tiktoken-rs 0.12 with o200k_base.
+[x] One TokenCounter instance counts every AI-eligible repository file.
+[x] The same TokenCounter counts the exact final Markdown packet string.
+[x] The scan report stores tokenizer, encoding, method, and fallback status.
+[x] Added explicit TokenAccounting report fields for both totals and their difference.
+[x] Potentially avoidable context uses saturating subtraction and never goes negative.
+[x] Packet-larger-than-context and zero-token cases return 0% with an explanation.
+[x] Updated UI labels to the approved token-accounting wording.
+[x] Removed the speculative retry-token range from report details.
+[x] Added ASCII, Unicode, source-code, empty-content, empty-repository, exact packet,
+    eligible-file sum, and repeated-scan coverage.
+[x] No pricing, freshness monitoring, file watching, download, or copy was added.
 
-1. Select and document one explicit tokenizer and encoding.
-2. Count the final rendered packet string once.
-3. Preserve transparent tokenization metadata and fallback behavior.
-4. Do not connect the measured count to reduction metrics yet.
+Primary formula:
+  AI-eligible repository context
+  - repository-packet tokens
+  = potentially avoidable context
 
-ORDER AFTER TOKEN COUNTING
+NEXT IMPLEMENTATION SLICE: STANDALONE PACKET DOWNLOAD AND COPY
 
-1. Add a standalone packet download/export action.
-2. Add a packet copy action if it can be supported cleanly in the current shell.
-3. Connect measured packet tokens to reduction metrics.
-4. Rename the main metrics to:
-     - AI-eligible repository context
-     - Repository-packet tokens
-     - Potentially avoidable context
-     - Potential input-token reduction
-5. Remove retry-pass predictions and non-deterministic UI claims.
-6. Keep diagnostic JSON export separate from the user-facing repository packet.
+1. Add a standalone Markdown packet download action.
+2. Add a packet copy action.
+3. Generate both actions from render_repository_packet(&RepoDigest).
+4. Keep diagnostic JSON export separate.
+5. Do not add pricing, freshness monitoring, or file watching in this slice.
 
 EXPECTED FILES FOR PACKET V1
 
@@ -181,15 +193,39 @@ LATEST VALIDATION
 Assessment date: 2026-07-10
 
 [pass] npm run typecheck
+[pass] npm run build
 [pass] cargo fmt --check
-[pass] cargo test: 16 passed, 0 failed
-[note] git diff --check reported two existing trailing-whitespace warnings in
-       src/components/ReportView.tsx
-[not run] Full frontend production build
+[pass] cargo check
+[pass] cargo test: 20 passed, 0 failed
+[pass] git diff --check
 [not run] Full Tauri bundle build
 [not run] Visual QA
 
 CHANGE LOG
+
+2026-07-10
+- Completed Milestone 2: unified deterministic token accounting.
+- Added tiktoken-rs 0.12 with the explicit o200k_base encoding.
+- Counted every AI-eligible file and the exact rendered packet through the same
+  TokenCounter instance, with characters-divided-by-four only as a shared fallback.
+- Added TokenAccounting report fields, exact packetTokens, transparent tokenizer
+  metadata, safe zero/larger-packet handling, and approved UI labels.
+- Added ASCII, Unicode, source-code, empty-content, eligible-file sum, exact packet,
+  empty-repository, and repeated-scan tests; 20 Rust tests pass.
+- Selected standalone packet download and copy actions as the next milestone.
+
+2026-07-10
+- Increased the fixed desktop window from 860 x 520 to 1100 x 620 after the
+  three-column report content overflowed in the smaller window.
+- Increased the report surface from 810 to 1040 pixels while preserving the
+  approved header, hero, risk cards, footer content, and fixed-window behavior.
+- Validated the exact window configuration, TypeScript, frontend production
+  build, generated Tailwind width class, and Rust compilation.
+
+2026-07-10
+- Locked the Fixer desktop window to 860 x 520.
+- Disabled manual resizing, maximizing/zooming, and fullscreen startup.
+- Validated the Tauri configuration, TypeScript, and Rust compilation.
 
 2026-07-10
 - Added a synchronized progress tracker at the root of the runnable Fixer project.

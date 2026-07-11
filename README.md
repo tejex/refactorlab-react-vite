@@ -19,6 +19,14 @@ Fixer does not call an AI model, upload source code, modify files, generate patc
 - Rust scanner/backend commands
 - SQLite local report history
 
+## Token accounting
+
+Fixer uses `tiktoken-rs` with the explicit `o200k_base` encoding as its primary
+deterministic tokenizer. The same counter measures every AI-eligible repository
+file and the exact final Markdown repository packet. If the tokenizer cannot
+initialize, both sides use the clearly labeled `characters / 4` fallback; Fixer
+never mixes primary and fallback counts in one comparison.
+
 ## Run
 
 ```bash

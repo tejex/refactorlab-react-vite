@@ -284,7 +284,7 @@ fn context_summaries(seeds: &[SummarySeed]) -> Vec<ContextSummary> {
         seeds,
         "runtime_data",
         "Runtime Data",
-        "Runtime or local environment files excluded from likely AI context.",
+        "Runtime or local environment files excluded from AI-eligible repository context.",
     ) {
         summaries.push(summary);
     }

@@ -11,8 +11,8 @@ use std::fs;
 use std::path::PathBuf;
 
 use report::{
-    ContextClassification, ContextEstimate, CostDriver, FileSignal, LanguageStat, PrivacySignals,
-    RepoDigest, RepoGraphSummary, RepoScanReport, Scores, Totals, VerificationSignals,
+    ContextClassification, CostDriver, FileSignal, LanguageStat, PrivacySignals, RepoDigest,
+    RepoGraphSummary, RepoScanReport, Scores, TokenAccounting, Totals, VerificationSignals,
 };
 use serde::Serialize;
 use token_counter::TokenizationMetadata;
@@ -26,7 +26,7 @@ struct ExportedReport<'a> {
     cost_drivers: &'a [CostDriver],
     tokenization: &'a TokenizationMetadata,
     repo_digest: &'a Option<RepoDigest>,
-    context_estimate: &'a Option<ContextEstimate>,
+    token_accounting: &'a Option<TokenAccounting>,
     formulas: ExportFormulas,
     scoring_notes: Vec<&'static str>,
 }
@@ -48,10 +48,10 @@ struct ExportRawFacts<'a> {
 #[serde(rename_all = "camelCase")]
 struct ExportFormulas {
     ai_cost_risk: &'static str,
-    tokens_at_risk: &'static str,
-    estimated_compact_repo_map_tokens: String,
-    potential_tokens_saved: String,
-    context_waste: &'static str,
+    ai_eligible_repository_context: &'static str,
+    repository_packet_tokens: String,
+    potentially_avoidable_context: String,
+    potential_input_token_reduction: &'static str,
     retry_burn_risk: &'static str,
     privacy_risk: &'static str,
 }
@@ -90,12 +90,12 @@ fn export_payload(report: &RepoScanReport) -> ExportedReport<'_> {
         cost_drivers: &report.top_cost_drivers,
         tokenization: &report.tokenization,
         repo_digest: &report.repo_digest,
-        context_estimate: &report.context_estimate,
+        token_accounting: &report.token_accounting,
         formulas: export_formulas(report),
         scoring_notes: vec![
             "All scores are deterministic local heuristics.",
             "No AI model call is used to generate this report.",
-            "Fixer summary and context estimates are generated from deterministic scanner facts.",
+            "Repository-packet and AI-eligible repository totals use the same explicit tokenizer and encoding.",
             "Actual token use depends on model, prompt shape, tools, cache, and task scope.",
         ],
     }
@@ -103,22 +103,22 @@ fn export_payload(report: &RepoScanReport) -> ExportedReport<'_> {
 
 /// Builds human-readable formula notes from the exact scanned values in the report.
 fn export_formulas(report: &RepoScanReport) -> ExportFormulas {
-    let (source_tokens, compact_repo_tokens, potential_tokens_saved, _context_waste) =
-        context_values(report);
+    let (eligible_tokens, packet_tokens, avoidable_tokens, _reduction_percent) =
+        token_accounting_values(report);
 
     ExportFormulas {
         ai_cost_risk: "0.35 * context burden + 0.25 * verification debt + 0.15 * ambiguity risk + 0.15 * blast radius + 0.10 * privacy risk",
-        tokens_at_risk: "estimatedSourceTokens is sum(TokenCounter.count(scanned text file))",
-        estimated_compact_repo_map_tokens: format!(
-            "contextEstimate.digestTokens = {} Fixer summary tokens from scanner facts",
-            compact_repo_tokens
+        ai_eligible_repository_context: "sum(TokenCounter.count(file content)) for files included by the deterministic context classifier",
+        repository_packet_tokens: format!(
+            "TokenCounter.count(renderRepositoryPacket(repoDigest)) = {} repository-packet tokens",
+            packet_tokens
         ),
-        potential_tokens_saved: format!(
-            "{} likely AI context tokens - {} Fixer summary tokens = {} tokens saved in the summary",
-            source_tokens, compact_repo_tokens, potential_tokens_saved
+        potentially_avoidable_context: format!(
+            "{} AI-eligible repository tokens - {} repository-packet tokens = {} potentially avoidable context tokens",
+            eligible_tokens, packet_tokens, avoidable_tokens
         ),
-        context_waste: if report.context_estimate.is_some() {
-            "contextEstimate.potentiallyAvoidablePercent is how much smaller the Fixer summary is than the likely AI context"
+        potential_input_token_reduction: if report.token_accounting.is_some() {
+            "floor(potentiallyAvoidableContextTokens / aiEligibleRepositoryTokens * 100), capped below 100 for a nonempty packet"
         } else {
             "Fallback: compressionOpportunityPercent estimates potential reduction versus broad repo context"
         },
@@ -127,26 +127,25 @@ fn export_formulas(report: &RepoScanReport) -> ExportFormulas {
     }
 }
 
-fn context_values(report: &RepoScanReport) -> (usize, usize, usize, usize) {
-    if let Some(context) = &report.context_estimate {
+fn token_accounting_values(report: &RepoScanReport) -> (usize, usize, usize, usize) {
+    if let Some(accounting) = &report.token_accounting {
         return (
-            context.broad_source_tokens,
-            context.digest_tokens,
-            context.potentially_avoidable_tokens,
-            context.potentially_avoidable_percent as usize,
+            accounting.ai_eligible_repository_tokens,
+            accounting.repository_packet_tokens,
+            accounting.potentially_avoidable_context_tokens,
+            accounting.potential_input_token_reduction_percent as usize,
         );
     }
 
     let source_tokens = report.totals.estimated_source_tokens;
     let context_waste = report.scores.compression_opportunity_percent as usize;
-    let compact_repo_tokens =
-        source_tokens.saturating_mul(100_usize.saturating_sub(context_waste)) / 100;
-    let potential_tokens_saved = source_tokens.saturating_sub(compact_repo_tokens);
+    let packet_tokens = source_tokens.saturating_mul(100_usize.saturating_sub(context_waste)) / 100;
+    let potentially_avoidable_tokens = source_tokens.saturating_sub(packet_tokens);
 
     (
         source_tokens,
-        compact_repo_tokens,
-        potential_tokens_saved,
+        packet_tokens,
+        potentially_avoidable_tokens,
         context_waste,
     )
 }
@@ -165,23 +164,28 @@ pub fn run() {
 mod tests {
     use super::{export_payload, report, token_counter};
     use report::{
-        ContextEstimate, CostDriver, FileSignal, LanguageStat, PrivacySignals, RepoDigest,
-        RepoDigestSection, RepoGraphSummary, RepoScanReport, Scores, Totals, VerificationSignals,
+        CostDriver, FileSignal, LanguageStat, PrivacySignals, RepoDigest, RepoDigestSection,
+        RepoGraphSummary, RepoScanReport, Scores, TokenAccounting, Totals, VerificationSignals,
     };
 
     #[test]
-    fn export_payload_includes_v2_digest_context_and_tokenization() {
+    fn export_payload_includes_packet_accounting_and_tokenization() {
         let report = sample_report();
         let value = serde_json::to_value(export_payload(&report)).expect("export should serialize");
 
         assert!(value.get("tokenization").is_some());
         assert!(value.get("repoDigest").is_some());
-        assert!(value.get("contextEstimate").is_some());
-        assert_eq!(value["contextEstimate"]["basis"], "digest_derived");
-        assert_eq!(value["repoDigest"]["estimatedTokens"], 25);
+        assert!(value.get("tokenAccounting").is_some());
         assert_eq!(
-            value["formulas"]["potentialTokensSaved"],
-            "100 likely AI context tokens - 25 Fixer summary tokens = 75 tokens saved in the summary"
+            value["tokenAccounting"]["basis"],
+            "same_tokenizer_exact_packet"
+        );
+        assert_eq!(value["repoDigest"]["packetTokens"], 25);
+        assert_eq!(value["tokenization"]["tokenizer"], "tiktoken-rs");
+        assert_eq!(value["tokenization"]["encoding"], "o200k_base");
+        assert_eq!(
+            value["formulas"]["potentiallyAvoidableContext"],
+            "100 AI-eligible repository tokens - 25 repository-packet tokens = 75 potentially avoidable context tokens"
         );
     }
 
@@ -234,10 +238,16 @@ mod tests {
             }],
             ignored_paths: vec![],
             context_classification: Default::default(),
-            tokenization: token_counter::default_tokenization_metadata(),
+            tokenization: token_counter::TokenizationMetadata {
+                tokenizer: "tiktoken-rs".to_string(),
+                method: "byte_pair_encoding".to_string(),
+                encoding: Some("o200k_base".to_string()),
+                fallback_used: false,
+                notes: vec![],
+            },
             repo_digest: Some(RepoDigest {
                 generated_at: "1".to_string(),
-                estimated_tokens: 25,
+                packet_tokens: 25,
                 sections: vec![RepoDigestSection {
                     id: "project-overview".to_string(),
                     title: "Project Overview".to_string(),
@@ -247,12 +257,12 @@ mod tests {
                 }],
                 notes: vec![],
             }),
-            context_estimate: Some(ContextEstimate {
-                broad_source_tokens: 100,
-                digest_tokens: 25,
-                potentially_avoidable_tokens: 75,
-                potentially_avoidable_percent: 75,
-                basis: "digest_derived".to_string(),
+            token_accounting: Some(TokenAccounting {
+                ai_eligible_repository_tokens: 100,
+                repository_packet_tokens: 25,
+                potentially_avoidable_context_tokens: 75,
+                potential_input_token_reduction_percent: 75,
+                basis: "same_tokenizer_exact_packet".to_string(),
                 notes: vec![],
             }),
         }

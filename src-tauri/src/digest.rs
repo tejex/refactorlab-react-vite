@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::report::{ContextEstimate, FileSignal, RepoDigest, RepoDigestSection, RepoScanReport};
+use crate::report::{FileSignal, RepoDigest, RepoDigestSection, RepoScanReport, TokenAccounting};
 use crate::token_counter::TokenCounter;
 
 const REPOSITORY_PACKET_TITLE: &str = "# Repository Context";
@@ -128,7 +128,7 @@ pub fn generate_repo_digest(
             format!("Path: {}", report.repo_path),
             format!("Source files: {}", report.totals.source_files),
             format!(
-                "Likely AI context tokens: {}",
+                "AI-eligible repository context tokens: {}",
                 report.totals.estimated_source_tokens
             ),
             format!(
@@ -189,7 +189,7 @@ pub fn generate_repo_digest(
         500,
         vec![
             format!(
-                "Likely AI context: {} tokens / {} files",
+                "AI-eligible repository context: {} tokens / {} files",
                 report
                     .context_classification
                     .totals
@@ -291,7 +291,7 @@ pub fn generate_repo_digest(
         900,
         vec![
             format!(
-                "Likely AI context tokens: {}",
+                "AI-eligible repository context tokens: {}",
                 report.totals.estimated_source_tokens
             ),
             format!(
@@ -438,50 +438,56 @@ pub fn generate_repo_digest(
         token_counter,
     ));
 
-    let estimated_tokens = sections
-        .iter()
-        .map(|section| section.estimated_tokens)
-        .sum();
-
-    RepoDigest {
+    let mut digest = RepoDigest {
         generated_at: report.scanned_at.clone(),
-        estimated_tokens,
+        packet_tokens: 0,
         sections,
         notes: vec![
             "Digest generated from deterministic repo facts only.".to_string(),
-            "Likely AI context leaves generated/reference, lock file, and runtime-data buckets summarized separately.".to_string(),
+            "AI-eligible repository context leaves generated/reference, lock file, and runtime-data buckets summarized separately.".to_string(),
             "Summary buckets preserve evidence about excluded generated/reference and dependency context.".to_string(),
             "No file contents or secret values are included in the digest.".to_string(),
         ],
-    }
+    };
+    let packet = render_repository_packet(&digest);
+    digest.packet_tokens = token_counter.count(&packet);
+    digest
 }
 
-/// Computes the V2 context estimate from broad source tokens minus digest tokens.
-pub fn context_estimate_from_digest(
+/// Compares AI-eligible repository context with the exact final Markdown packet.
+pub fn token_accounting_from_packet(
     report: &RepoScanReport,
     digest: &RepoDigest,
-) -> ContextEstimate {
-    let broad_source_tokens = report.totals.estimated_source_tokens;
-    let digest_tokens = digest.estimated_tokens;
-    let potentially_avoidable_tokens = broad_source_tokens.saturating_sub(digest_tokens);
-    let potentially_avoidable_percent = conservative_context_percent(
-        broad_source_tokens,
-        digest_tokens,
-        potentially_avoidable_tokens,
+) -> TokenAccounting {
+    let ai_eligible_repository_tokens = report.totals.estimated_source_tokens;
+    let repository_packet_tokens = digest.packet_tokens;
+    let potentially_avoidable_context_tokens =
+        ai_eligible_repository_tokens.saturating_sub(repository_packet_tokens);
+    let potential_input_token_reduction_percent = conservative_context_percent(
+        ai_eligible_repository_tokens,
+        repository_packet_tokens,
+        potentially_avoidable_context_tokens,
     );
+    let mut notes = vec![
+        "AI-eligible repository files and the final rendered Markdown packet use the same tokenizer and encoding.".to_string(),
+        "This is potential input-context reduction, not observed external-agent token savings.".to_string(),
+        "Percent is rounded down and capped below 100 when the packet has nonzero tokens.".to_string(),
+    ];
 
-    ContextEstimate {
-        broad_source_tokens,
-        digest_tokens,
-        potentially_avoidable_tokens,
-        potentially_avoidable_percent,
-        basis: "digest_derived".to_string(),
-        notes: vec![
-            "Fixer summary tokens are generated from deterministic repo facts.".to_string(),
-            "This is a repo summary size estimate, not the exact working context required for a specific code edit.".to_string(),
-            "Actual AI token use depends on model, prompt, tools, cache, and task.".to_string(),
-            "Percent is rounded down and capped below 100 when the digest has nonzero tokens.".to_string(),
-        ],
+    if repository_packet_tokens > ai_eligible_repository_tokens {
+        notes.push(
+            "The repository packet is larger than the AI-eligible repository context; potentially avoidable context is clamped to 0 tokens."
+                .to_string(),
+        );
+    }
+
+    TokenAccounting {
+        ai_eligible_repository_tokens,
+        repository_packet_tokens,
+        potentially_avoidable_context_tokens,
+        potential_input_token_reduction_percent,
+        basis: "same_tokenizer_exact_packet".to_string(),
+        notes,
     }
 }
 
@@ -602,10 +608,10 @@ fn present_missing(value: bool) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::{context_estimate_from_digest, generate_repo_digest, render_repository_packet};
+    use super::{generate_repo_digest, render_repository_packet, token_accounting_from_packet};
     use crate::report::{
-        ContextEstimate, CostDriver, FileSignal, LanguageStat, PrivacySignals, RepoDigest,
-        RepoDigestSection, RepoGraphSummary, RepoScanReport, Scores, Totals, VerificationSignals,
+        CostDriver, FileSignal, LanguageStat, PrivacySignals, RepoDigest, RepoDigestSection,
+        RepoGraphSummary, RepoScanReport, Scores, TokenAccounting, Totals, VerificationSignals,
     };
     use crate::token_counter::HeuristicTokenCounter;
 
@@ -614,7 +620,7 @@ mod tests {
         let digest = packet_fixture_digest();
         let mut reordered = digest.clone();
         reordered.generated_at = "different-timestamp".to_string();
-        reordered.estimated_tokens = 999_999;
+        reordered.packet_tokens = 999_999;
         reordered.sections.reverse();
         for section in &mut reordered.sections {
             section.content = section.content.lines().rev().collect::<Vec<_>>().join("\n");
@@ -635,13 +641,13 @@ mod tests {
     fn empty_or_path_only_digest_still_generates_a_valid_packet() {
         let empty = RepoDigest {
             generated_at: "1".to_string(),
-            estimated_tokens: 0,
+            packet_tokens: 0,
             sections: vec![],
             notes: vec![],
         };
         let path_only = RepoDigest {
             generated_at: "2".to_string(),
-            estimated_tokens: 12,
+            packet_tokens: 12,
             sections: vec![RepoDigestSection {
                 id: "project-overview".to_string(),
                 title: "Project Overview".to_string(),
@@ -672,7 +678,7 @@ mod tests {
             .map(|section| section.id.as_str())
             .collect::<Vec<_>>();
 
-        assert_eq!(first.estimated_tokens, second.estimated_tokens);
+        assert_eq!(first.packet_tokens, second.packet_tokens);
         assert_eq!(first.sections[0].content, second.sections[0].content);
         assert!(ids.contains(&"project-overview"));
         assert!(ids.contains(&"verification-signals"));
@@ -687,7 +693,7 @@ mod tests {
     fn packet_fixture_digest() -> RepoDigest {
         RepoDigest {
             generated_at: "1710000000".to_string(),
-            estimated_tokens: 321,
+            packet_tokens: 321,
             sections: vec![
                 RepoDigestSection {
                     id: "verification-signals".to_string(),
@@ -764,11 +770,11 @@ mod tests {
     }
 
     #[test]
-    fn context_estimate_uses_digest_tokens_and_clamps_percent() {
+    fn token_accounting_uses_exact_packet_tokens_and_clamps_percent() {
         let report = sample_report_with_source_tokens(100);
         let digest = RepoDigest {
             generated_at: "1".to_string(),
-            estimated_tokens: 25,
+            packet_tokens: 25,
             sections: vec![RepoDigestSection {
                 id: "x".to_string(),
                 title: "X".to_string(),
@@ -779,45 +785,49 @@ mod tests {
             notes: vec![],
         };
 
-        let estimate = context_estimate_from_digest(&report, &digest);
+        let accounting = token_accounting_from_packet(&report, &digest);
 
-        assert_eq!(estimate.broad_source_tokens, 100);
-        assert_eq!(estimate.digest_tokens, 25);
-        assert_eq!(estimate.potentially_avoidable_tokens, 75);
-        assert_eq!(estimate.potentially_avoidable_percent, 75);
-        assert_eq!(estimate.basis, "digest_derived");
+        assert_eq!(accounting.ai_eligible_repository_tokens, 100);
+        assert_eq!(accounting.repository_packet_tokens, 25);
+        assert_eq!(accounting.potentially_avoidable_context_tokens, 75);
+        assert_eq!(accounting.potential_input_token_reduction_percent, 75);
+        assert_eq!(accounting.basis, "same_tokenizer_exact_packet");
     }
 
     #[test]
-    fn context_estimate_does_not_round_nonzero_digest_to_100_percent() {
+    fn token_accounting_does_not_round_nonzero_packet_to_100_percent() {
         let report = sample_report_with_source_tokens(231_600);
         let digest = RepoDigest {
             generated_at: "1".to_string(),
-            estimated_tokens: 871,
+            packet_tokens: 871,
             sections: vec![],
             notes: vec![],
         };
 
-        let estimate = context_estimate_from_digest(&report, &digest);
+        let accounting = token_accounting_from_packet(&report, &digest);
 
-        assert_eq!(estimate.potentially_avoidable_tokens, 230_729);
-        assert_eq!(estimate.potentially_avoidable_percent, 99);
+        assert_eq!(accounting.potentially_avoidable_context_tokens, 230_729);
+        assert_eq!(accounting.potential_input_token_reduction_percent, 99);
     }
 
     #[test]
-    fn context_estimate_handles_zero_broad_tokens() {
+    fn token_accounting_handles_zero_context_and_larger_packet_safely() {
         let report = sample_report_with_source_tokens(0);
         let digest = RepoDigest {
             generated_at: "1".to_string(),
-            estimated_tokens: 25,
+            packet_tokens: 25,
             sections: vec![],
             notes: vec![],
         };
 
-        let estimate = context_estimate_from_digest(&report, &digest);
+        let accounting = token_accounting_from_packet(&report, &digest);
 
-        assert_eq!(estimate.potentially_avoidable_tokens, 0);
-        assert_eq!(estimate.potentially_avoidable_percent, 0);
+        assert_eq!(accounting.potentially_avoidable_context_tokens, 0);
+        assert_eq!(accounting.potential_input_token_reduction_percent, 0);
+        assert!(accounting
+            .notes
+            .iter()
+            .any(|note| note.contains("clamped to 0 tokens")));
     }
 
     fn sample_report_with_source_tokens(tokens: usize) -> RepoScanReport {
@@ -917,7 +927,7 @@ mod tests {
             context_classification: Default::default(),
             tokenization: crate::token_counter::default_tokenization_metadata(),
             repo_digest: None,
-            context_estimate: None::<ContextEstimate>,
+            token_accounting: None::<TokenAccounting>,
         }
     }
 }

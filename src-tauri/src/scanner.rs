@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use crate::classifier::{include_in_default_context, FileClassificationInput, FileClassifier};
 
-use crate::digest::{context_estimate_from_digest, generate_repo_digest};
+use crate::digest::{generate_repo_digest, token_accounting_from_packet};
 use crate::report::{
     clamp_score, label_risk, CostDriver, FileSignal, GraphFileSignal, LanguageStat, PrivacySignals,
     RepoGraphSummary, RepoScanReport, Scores, Totals, VerificationSignals,
@@ -148,16 +148,17 @@ pub fn scan_repo(root: PathBuf) -> io::Result<RepoScanReport> {
         top_cost_drivers,
         ignored_paths: state.ignored_paths,
         context_classification,
-        tokenization: token_counter.method(),
+        tokenization: token_counter.metadata(),
         repo_digest: None,
-        context_estimate: None,
+        token_accounting: None,
     };
 
     let repo_digest = generate_repo_digest(&report, token_counter.as_ref());
-    let context_estimate = context_estimate_from_digest(&report, &repo_digest);
-    report.scores.compression_opportunity_percent = context_estimate.potentially_avoidable_percent;
+    let token_accounting = token_accounting_from_packet(&report, &repo_digest);
+    report.scores.compression_opportunity_percent =
+        token_accounting.potential_input_token_reduction_percent;
     report.repo_digest = Some(repo_digest);
-    report.context_estimate = Some(context_estimate);
+    report.token_accounting = Some(token_accounting);
 
     Ok(report)
 }
@@ -935,7 +936,7 @@ fn cost_drivers(
             }
             .to_string(),
             explanation: format!(
-                "{} generated/reference or dependency-lockfile tokens are summarized instead of counted as likely AI context.",
+                "{} generated/reference or dependency-lockfile tokens are summarized instead of counted as AI-eligible repository context.",
                 generated_or_dependency_tokens
             ),
             affected_count: Some(
@@ -1229,4 +1230,113 @@ fn now_epoch_string() -> String {
         .duration_since(UNIX_EPOCH)
         .map(|value| value.as_secs().to_string())
         .unwrap_or_else(|_| "0".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::scan_repo;
+    use crate::digest::render_repository_packet;
+    use crate::token_counter::default_token_counter;
+
+    struct TestRepo {
+        path: PathBuf,
+    }
+
+    impl TestRepo {
+        fn new(name: &str) -> Self {
+            let nonce = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("test clock should be valid")
+                .as_nanos();
+            let path =
+                std::env::temp_dir().join(format!("fixer-{name}-{}-{nonce}", std::process::id()));
+            fs::create_dir_all(&path).expect("test repo should be created");
+            Self { path }
+        }
+
+        fn path(&self) -> &Path {
+            &self.path
+        }
+    }
+
+    impl Drop for TestRepo {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
+
+    #[test]
+    fn repeated_scans_produce_identical_unified_token_accounting() {
+        let repo = TestRepo::new("repeated-token-accounting");
+        let manifest = r#"{"scripts":{"build":"tsc","test":"vitest","typecheck":"tsc --noEmit","lint":"eslint ."}}"#;
+        let source = "export const greeting = 'hello 世界 👋🏽';\nconsole.log(greeting);\n";
+        fs::create_dir_all(repo.path().join("src")).expect("src directory should be created");
+        fs::write(repo.path().join("package.json"), manifest)
+            .expect("package manifest should be written");
+        fs::write(repo.path().join("src/main.ts"), source).expect("source file should be written");
+
+        let first = scan_repo(repo.path().to_path_buf()).expect("first scan should succeed");
+        let second = scan_repo(repo.path().to_path_buf()).expect("second scan should succeed");
+
+        assert_eq!(first.tokenization, second.tokenization);
+        assert_eq!(first.tokenization.tokenizer, "tiktoken-rs");
+        assert_eq!(first.tokenization.encoding.as_deref(), Some("o200k_base"));
+        assert!(!first.tokenization.fallback_used);
+        assert_eq!(
+            first.totals.estimated_source_tokens,
+            second.totals.estimated_source_tokens
+        );
+        assert_eq!(first.token_accounting, second.token_accounting);
+
+        let counter = default_token_counter();
+        assert_eq!(
+            first.totals.estimated_source_tokens,
+            counter.count(manifest) + counter.count(source)
+        );
+
+        let digest = first
+            .repo_digest
+            .as_ref()
+            .expect("packet digest should exist");
+        let packet = render_repository_packet(digest);
+        assert_eq!(digest.packet_tokens, counter.count(&packet));
+
+        let accounting = first
+            .token_accounting
+            .as_ref()
+            .expect("token accounting should exist");
+        assert_eq!(
+            accounting.ai_eligible_repository_tokens,
+            first.totals.estimated_source_tokens
+        );
+        assert_eq!(accounting.repository_packet_tokens, digest.packet_tokens);
+    }
+
+    #[test]
+    fn empty_repo_clamps_avoidable_context_to_zero() {
+        let repo = TestRepo::new("empty-token-accounting");
+        let report = scan_repo(repo.path().to_path_buf()).expect("empty scan should succeed");
+        let digest = report
+            .repo_digest
+            .as_ref()
+            .expect("packet digest should exist");
+        let accounting = report
+            .token_accounting
+            .as_ref()
+            .expect("token accounting should exist");
+
+        assert_eq!(accounting.ai_eligible_repository_tokens, 0);
+        assert!(digest.packet_tokens > 0);
+        assert_eq!(accounting.repository_packet_tokens, digest.packet_tokens);
+        assert_eq!(accounting.potentially_avoidable_context_tokens, 0);
+        assert_eq!(accounting.potential_input_token_reduction_percent, 0);
+        assert!(accounting
+            .notes
+            .iter()
+            .any(|note| note.contains("clamped to 0 tokens")));
+    }
 }

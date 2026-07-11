@@ -1,4 +1,4 @@
-import type { CostDriver, RepoScanReport, Scores, Totals } from "../types";
+import type { CostDriver, RepoScanReport, Totals } from "../types";
 
 export interface DisplayDriver {
   title: string;
@@ -8,14 +8,10 @@ export interface DisplayDriver {
 }
 
 export interface TokenContextMath {
-  compactContextTokens: number;
-  contextReductionPercent: number;
-  potentialTokensSaved: number;
-  retryMaxPasses: number;
-  retryMinPasses: number;
-  retryContextTokensMax: number;
-  retryContextTokensMin: number;
-  sourceTokens: number;
+  aiEligibleRepositoryTokens: number;
+  repositoryPacketTokens: number;
+  potentiallyAvoidableContextTokens: number;
+  potentialInputTokenReductionPercent: number;
 }
 
 export function costFocusedDriver(driver: CostDriver, totals: Totals): DisplayDriver {
@@ -51,7 +47,7 @@ export function costFocusedDriver(driver: CostDriver, totals: Totals): DisplayDr
       return {
         ...defaults,
         title: "Generated context may inflate scans",
-        explanation: "Generated/reference files and dependency lock files are summarized separately from likely AI context.",
+        explanation: "Generated/reference files and dependency lock files are summarized separately from AI-eligible repository context.",
         affectedLabel: affected ? `${affected.toLocaleString()} files` : null,
       };
     case "Import graph may amplify AI changes":
@@ -88,60 +84,38 @@ export function compactNumber(value: number) {
   return Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 }).format(value);
 }
 
-export function retryPassRange(retryRisk: Scores["retryRisk"]) {
-  if (retryRisk === "High") return { min: 3, max: 5 };
-  if (retryRisk === "Medium") return { min: 2, max: 3 };
-  return { min: 1, max: 2 };
-}
-
-export function tokenContextMath(sourceTokens: number, contextReductionPercent: number, retryRisk: Scores["retryRisk"]): TokenContextMath {
+export function tokenContextMath(sourceTokens: number, contextReductionPercent: number): TokenContextMath {
   const safePercent = clampPercent(contextReductionPercent);
-  const potentialTokensSaved = Math.round(sourceTokens * (safePercent / 100));
-  const compactContextTokens = Math.max(0, sourceTokens - potentialTokensSaved);
-  const { min, max } = retryPassRange(retryRisk);
+  const potentiallyAvoidableContextTokens = Math.round(sourceTokens * (safePercent / 100));
+  const repositoryPacketTokens = Math.max(0, sourceTokens - potentiallyAvoidableContextTokens);
 
   return {
-    compactContextTokens,
-    contextReductionPercent: safePercent,
-    potentialTokensSaved,
-    retryMaxPasses: max,
-    retryMinPasses: min,
-    retryContextTokensMax: potentialTokensSaved * max,
-    retryContextTokensMin: potentialTokensSaved * min,
-    sourceTokens,
+    aiEligibleRepositoryTokens: sourceTokens,
+    repositoryPacketTokens,
+    potentiallyAvoidableContextTokens,
+    potentialInputTokenReductionPercent: safePercent,
   };
 }
 
 export function tokenContextMathFromReport(report: RepoScanReport): TokenContextMath {
-  const context = report.contextEstimate;
+  const accounting = report.tokenAccounting;
 
-  if (context) {
-    const { min, max } = retryPassRange(report.scores.retryRisk);
+  if (accounting) {
     return {
-      compactContextTokens: context.digestTokens,
-      contextReductionPercent: conservativePercent(context.potentiallyAvoidablePercent, context.digestTokens),
-      potentialTokensSaved: context.potentiallyAvoidableTokens,
-      retryMaxPasses: max,
-      retryMinPasses: min,
-      retryContextTokensMax: context.potentiallyAvoidableTokens * max,
-      retryContextTokensMin: context.potentiallyAvoidableTokens * min,
-      sourceTokens: context.broadSourceTokens,
+      aiEligibleRepositoryTokens: accounting.aiEligibleRepositoryTokens,
+      repositoryPacketTokens: accounting.repositoryPacketTokens,
+      potentiallyAvoidableContextTokens: accounting.potentiallyAvoidableContextTokens,
+      potentialInputTokenReductionPercent: conservativePercent(
+        accounting.potentialInputTokenReductionPercent,
+        accounting.repositoryPacketTokens,
+      ),
     };
   }
 
   return tokenContextMath(
     report.totals.estimatedSourceTokens,
     report.scores.compressionOpportunityPercent,
-    report.scores.retryRisk,
   );
-}
-
-export function tokenCalculation(totalSourceTokens: number, contextWastePercent: number) {
-  const math = tokenContextMath(totalSourceTokens, contextWastePercent, "Low");
-  return {
-    estimatedCompactRepoMapTokens: math.compactContextTokens,
-    potentialTokensSaved: math.potentialTokensSaved,
-  };
 }
 
 function clampPercent(value: number) {

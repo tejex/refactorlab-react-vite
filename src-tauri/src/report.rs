@@ -24,7 +24,7 @@ pub struct RepoScanReport {
     #[serde(default)]
     pub repo_digest: Option<RepoDigest>,
     #[serde(default)]
-    pub context_estimate: Option<ContextEstimate>,
+    pub token_accounting: Option<TokenAccounting>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -106,7 +106,7 @@ pub struct FileClassification {
 #[serde(rename_all = "camelCase")]
 pub struct RepoDigest {
     pub generated_at: String,
-    pub estimated_tokens: usize,
+    pub packet_tokens: usize,
     pub sections: Vec<RepoDigestSection>,
     pub notes: Vec<String>,
 }
@@ -121,13 +121,13 @@ pub struct RepoDigestSection {
     pub budget_tokens: usize,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ContextEstimate {
-    pub broad_source_tokens: usize,
-    pub digest_tokens: usize,
-    pub potentially_avoidable_tokens: usize,
-    pub potentially_avoidable_percent: u8,
+pub struct TokenAccounting {
+    pub ai_eligible_repository_tokens: usize,
+    pub repository_packet_tokens: usize,
+    pub potentially_avoidable_context_tokens: usize,
+    pub potential_input_token_reduction_percent: u8,
     pub basis: String,
     pub notes: Vec<String>,
 }

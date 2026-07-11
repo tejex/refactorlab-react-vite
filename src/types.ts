@@ -146,6 +146,7 @@ export interface ContextSummaryFile {
 }
 
 export interface TokenizationMetadata {
+  tokenizer: string;
   method: string;
   encoding?: string | null;
   fallbackUsed: boolean;
@@ -162,16 +163,16 @@ export interface RepoDigestSection {
 
 export interface RepoDigest {
   generatedAt: string;
-  estimatedTokens: number;
+  packetTokens: number;
   sections: RepoDigestSection[];
   notes: string[];
 }
 
-export interface ContextEstimate {
-  broadSourceTokens: number;
-  digestTokens: number;
-  potentiallyAvoidableTokens: number;
-  potentiallyAvoidablePercent: number;
+export interface TokenAccounting {
+  aiEligibleRepositoryTokens: number;
+  repositoryPacketTokens: number;
+  potentiallyAvoidableContextTokens: number;
+  potentialInputTokenReductionPercent: number;
   basis: string;
   notes: string[];
 }
@@ -192,5 +193,5 @@ export interface RepoScanReport {
   contextClassification?: ContextClassification;
   tokenization?: TokenizationMetadata;
   repoDigest?: RepoDigest | null;
-  contextEstimate?: ContextEstimate | null;
+  tokenAccounting?: TokenAccounting | null;
 }

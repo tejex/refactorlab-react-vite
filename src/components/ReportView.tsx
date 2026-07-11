@@ -20,14 +20,14 @@ export function ReportView({ exportMessage, onChooseAnother, onExport, onRescan,
   const math = tokenContextMathFromReport(report);
 
   return (
-    <section className="mx-auto grid h-screen w-[min(810px,calc(100vw-20px))] content-center gap-2 p-2 max-[780px]:h-auto max-[780px]:content-start">
+    <section className="mx-auto grid h-screen w-[min(1040px,calc(100vw-32px))] content-center gap-2 p-2 max-[780px]:h-auto max-[780px]:content-start">
       <CompactHeader report={report} onExport={onExport} onRescan={onRescan} />
 
       <HeroCostVerdict
-        compactContextTokens={math.compactContextTokens}
-        contextReductionPercent={math.contextReductionPercent}
-        potentialTokensSaved={math.potentialTokensSaved}
-        sourceTokens={math.sourceTokens}
+        aiEligibleRepositoryTokens={math.aiEligibleRepositoryTokens}
+        potentialInputTokenReductionPercent={math.potentialInputTokenReductionPercent}
+        potentiallyAvoidableContextTokens={math.potentiallyAvoidableContextTokens}
+        repositoryPacketTokens={math.repositoryPacketTokens}
       />
 
       <RiskSummaryRow
@@ -35,13 +35,13 @@ export function ReportView({ exportMessage, onChooseAnother, onExport, onRescan,
         privacyRisk={report.scores.privacyRisk}
         retryRisk={report.scores.retryRisk}
       />
-      
+
       <FooterActions
         exportMessage={exportMessage}
         onChooseAnother={onChooseAnother}
         onViewDetails={() => setBreakdownOpen(true)}
       />
-     
+
 
       <BreakdownDialog open={breakdownOpen} report={report} onOpenChange={setBreakdownOpen} />
     </section>

@@ -23,7 +23,7 @@ export function BreakdownDialog({ open, onOpenChange, report }: BreakdownDialogP
 
         <ScrollArea className="h-[390px] pr-3">
           <div className="grid grid-cols-2 gap-2 max-[700px]:grid-cols-1">
-            <DetailList title="Score Breakdown" items={scoreBreakdownItems(report)} />
+            <DetailList title="Score Breakdown" items={scoreBreakdownItems(report, math)} />
             <DetailList title="Token Calculations" items={tokenFormulaItems(math)} />
             <DetailList title="Repository Packet" items={digestItems(report, math)} />
             <DetailList title="Context Classification" items={classificationItems(report)} />
@@ -70,12 +70,12 @@ function DetailList({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function scoreBreakdownItems(report: RepoScanReport) {
+function scoreBreakdownItems(report: RepoScanReport, math: TokenContextMath) {
   return [
     "AI Cost Risk: " + report.scores.aiExpenseScore + "/10",
     "AI-Readiness: " + report.scores.aiReadinessScore + "/100",
     "Context burden: " + report.scores.contextBurden + "/10",
-    "Potential input-token reduction: " + report.scores.compressionOpportunityPercent + "%",
+    "Potential input-token reduction: " + math.potentialInputTokenReductionPercent + "%",
     "Verification debt: " + report.scores.verificationDebt + "/10",
     "Ambiguity risk: " + report.scores.ambiguityRisk + "/10",
     "Blast radius: " + report.scores.blastRadius + "/10",

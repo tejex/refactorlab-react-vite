@@ -1,5 +1,5 @@
 FIXER LOCAL PROGRESS TRACKER
-Last updated: 2026-07-10
+Last updated: 2026-07-14
 
 TRACKING RULE
 
@@ -67,7 +67,7 @@ WHAT ALREADY EXISTS
 
 KNOWN GAPS
 
-[ ] No standalone downloadable or copyable AI-readable repository packet
+[x] Final Markdown repository packet can be downloaded or copied
 [x] Final packet tokens are counted from the exact rendered Markdown artifact
 [x] AI-eligible files and the packet use tiktoken-rs with o200k_base
 [x] Characters-divided-by-four remains only as a labeled shared fallback
@@ -81,8 +81,8 @@ KNOWN GAPS
 [ ] No exact-duplicate hashing
 [ ] Excluded-context categories and token totals are incomplete
 [ ] Archive selection is documented but not implemented in the current UI
-[ ] Current packet/digest contains mostly aggregate facts and needs stronger
-    repository-understanding content
+[x] Markdown packet now includes deterministic repository-understanding details,
+    actionable findings, exact known commands, and reasoned important files
 
 WORDING THAT MUST BE CORRECTED
 
@@ -109,7 +109,7 @@ MILESTONE 1: DETERMINISTIC MARKDOWN REPOSITORY PACKET - COMPLETED
 [x] Confirmed the existing diagnostic JSON export test remains unchanged and passes.
 
 Implementation:
-  /Users/teju/Desktop/refactorlab-react-vite/src-tauri/src/digest.rs
+  /Users/teju/Desktop/refactorlab-react-vite/src-tauri/src/digest/
   /Users/teju/Desktop/refactorlab-react-vite/src-tauri/src/lib.rs
 
 Exact-output fixture:
@@ -135,18 +135,64 @@ Primary formula:
   - repository-packet tokens
   = potentially avoidable context
 
-NEXT IMPLEMENTATION SLICE: STANDALONE PACKET DOWNLOAD AND COPY
+MILESTONE 3: STANDALONE PACKET DOWNLOAD AND COPY - COMPLETED
 
-1. Add a standalone Markdown packet download action.
-2. Add a packet copy action.
-3. Generate both actions from render_repository_packet(&RepoDigest).
-4. Keep diagnostic JSON export separate.
-5. Do not add pricing, freshness monitoring, or file watching in this slice.
+[x] Added one shared packet_markdown(&RepoScanReport) backend helper.
+[x] Download Packet writes the exact renderer output to a standalone `.md` file.
+[x] Copy Packet writes that same Markdown string to the native system clipboard.
+[x] Added the official Tauri clipboard-manager plugin through the Rust backend.
+[x] Kept Export JSON as a separate diagnostic action.
+[x] Added clear success and missing-packet error messages.
+[x] Added exact export-parity and no-JSON-wrapper tests.
+[x] No pricing, freshness monitoring, or file watching was added.
+
+MILESTONE 4: AI-READABLE PACKET IMPROVEMENTS - IMPLEMENTED
+
+[x] Rendered each context classification category once with a stable label.
+[x] Joined graph hubs to complete scanner metadata using normalized relative paths.
+[x] Removed predictive score language from the user-facing Markdown packet.
+[x] Added stable unresolved-import source/specifier pairs.
+[x] Added redacted per-file privacy and runtime signal categories and counts.
+[x] Added exact package-manager commands only when deterministically known.
+[x] Added technology, directory, entrypoint, and important-file facts with reasons.
+[x] Kept diagnostic JSON and the standalone Markdown packet separate.
+[x] Kept the exact final Markdown string as the packet-token counting source.
+[x] Expanded the exact packet fixture and regression coverage to 26 Rust tests.
+[x] Final frontend and desktop build validation passed.
+
+REPOSITORY PACKET V1 CORRECTNESS PASS - COMPLETED / V1 FROZEN
+
+[x] Import resolution now checks AI-eligible importers against the complete scanned file index.
+[x] TypeScript bundler/node modes apply explicit `.js` to `.ts`/`.tsx`/`.d.ts` substitution.
+[x] Dedicated typecheck scripts are distinguished from type checking inside build commands.
+[x] Potential input-token reduction rounds to the nearest whole percentage point.
+[x] Named TypeScript configs classify as source-of-truth configuration.
+[x] Internal unknown classifications remain diagnostic and are omitted from the Markdown packet.
+[x] Final packet-token accounting now rejects a non-converged self-referential count.
+[x] Focused regression tests and full project validation passed.
+
+BACKEND RUST MODULARIZATION - COMPLETED
+
+[x] Split the scanner into discovery, verification, privacy, graph, metrics, and test modules.
+[x] Scanner module split compiles without changing report or packet behavior.
+[x] Split digest rendering, diagnostic digest generation, accounting, and tests.
+[x] Grouped classifier implementation, deterministic rules, and tests together.
+[x] Largest Rust source module is now 611 lines; no Rust file exceeds 1,000 lines.
+[x] All 35 Rust tests, frontend checks, and the native desktop build pass.
+
+NEXT IMPLEMENTATION SLICE: UI WORK
+
+1. Treat Repository Packet V1 behavior and wording as frozen.
+2. Build UI work on the validated packet, copy, download, and accounting fields.
+3. Keep diagnostic JSON separate from the user-facing packet.
+4. Do not change packet semantics during UI work unless a correctness defect is proven.
 
 EXPECTED FILES FOR PACKET V1
 
 Rust/backend:
-  src-tauri/src/digest.rs
+  src-tauri/src/classifier/
+  src-tauri/src/digest/
+  src-tauri/src/scanner/
   src-tauri/src/report.rs
   src-tauri/src/token_counter.rs
   src-tauri/src/lib.rs
@@ -190,18 +236,86 @@ DETERMINISTIC LIMITS
 
 LATEST VALIDATION
 
-Assessment date: 2026-07-10
+Assessment date: 2026-07-14
 
 [pass] npm run typecheck
 [pass] npm run build
 [pass] cargo fmt --check
-[pass] cargo check
-[pass] cargo test: 20 passed, 0 failed
+[pass] cargo test: 40 passed, 0 failed
 [pass] git diff --check
-[not run] Full Tauri bundle build
-[not run] Visual QA
+[pass] npm run tauri:build -- --debug
+[not applicable] Visual QA: no UI changes in this pass
 
 CHANGE LOG
+
+2026-07-14
+- Completed the final wording and presentation-accuracy polish for Repository
+  Packet V1.1 without adding scanner capabilities or changing the main UI.
+- Clarified the 94-file AI-eligible language scope and reconciled import coverage
+  as 93 candidates, 79 parsed files, and 14 role-skipped files.
+- Split package-command and entrypoint coverage, preserved devDependency wording,
+  corrected top-five file labels, and added 6 root-level files to structure totals.
+- Regenerated the exact reference packet at 2,205 o200k_base tokens; eligible
+  context is 45,413 tokens, potentially avoidable context is 43,208 tokens, and
+  rounded reduction remains 95%.
+- All Rust tests, formatting, TypeScript, frontend production build, native Tauri
+  debug bundle, and diff validation pass. Repository Packet V1.1 is now frozen
+  for UI implementation.
+
+2026-07-13
+- Completed Repository Packet V1.1 as a backend-focused accuracy pass.
+- Added explicit root/nested package scopes, scoped development and verification
+  commands, evidence-backed frontend/server entrypoints, compact manifest-derived
+  technology facts, and a safe missing-manifest-entry warning.
+- Defined JavaScript/TypeScript import accounting as static local, static external,
+  unresolved local, redacted machine-specific absolute, other, and dynamic counts;
+  local static edges alone now drive fan-in, fan-out, and cycle analysis.
+- Added analyzer coverage and unsupported-stack honesty, plus privacy grouping for
+  environment/configuration, documentation/examples, authored source, and generated output.
+- Hardened diagnostic serialization so analyzed package-script bodies and URL-like
+  dependency ranges are not republished; redaction tests cover Markdown and JSON facts.
+- Manual safe-fact validation of ai-test-engine found 2 package scopes, 79 analyzed
+  JavaScript/TypeScript files, 0 unresolved local static references, and 1 redacted
+  machine-specific import.
+- The exact o200k_base reference packet is 2,075 tokens; eligible context is 45,413
+  tokens; potentially avoidable context is 43,338 tokens; rounded reduction is 95%.
+- Added synthetic regression coverage; all 39 Rust tests, Rust formatting,
+  TypeScript checking, frontend production build, native Tauri debug build, and
+  diff validation pass.
+
+2026-07-13
+- Completed a backend-only Rust modularization without changing product behavior.
+- Replaced the 1,925-line scanner file with discovery, verification, privacy,
+  graph, metrics, orchestration, and test modules grouped under `scanner/`.
+- Replaced the 1,691-line digest file with packet, diagnostic, accounting,
+  orchestration, and test modules grouped under `digest/`.
+- Grouped classifier implementation, deterministic JSON rules, and tests under
+  `classifier/`; the largest Rust source module is now 611 lines.
+- Preserved all 35 Rust tests and passed TypeScript, frontend production, and
+  native Tauri debug builds.
+
+2026-07-11
+- Completed and froze Repository Packet V1 after a narrow correctness pass.
+- Resolved all nine reported false-positive imports using the complete scan index,
+  JSONC TypeScript configuration, and explicit TypeScript `.js` source substitution.
+- Corrected typecheck wording, nearest-whole reduction rounding, named tsconfig
+  classification, and exact exported-byte packet token verification.
+- Added nine focused regression tests; 35 Rust tests now pass.
+- Improved the exported Markdown packet into deterministic AI-readable repository context.
+- Added normalized graph metadata joins, exact known commands, actionable redacted findings,
+  reasoned important files, stable structure facts, and deduplicated context accounting.
+- Removed predictive scores and unsupported savings claims from the Markdown packet.
+- Passed Rust tests, TypeScript checking, frontend build, and native Tauri debug build.
+
+2026-07-10
+- Completed Milestone 3: standalone Markdown packet download and native copy.
+- Added shared packet_markdown, export_packet, and copy_packet backend paths.
+- Added Download Packet, Copy Packet, and clearly separate Export JSON controls.
+- Added the official Tauri clipboard-manager plugin and packaged it successfully.
+- Added exact exported-artifact parity, missing-packet error, and no-JSON-wrapper tests.
+- Validated 22 Rust tests, TypeScript, frontend production build, Rust formatting,
+  diff checks, and a complete Tauri debug application bundle.
+- Selected manual packet freshness/manifests as the next planned milestone.
 
 2026-07-10
 - Completed Milestone 2: unified deterministic token accounting.
@@ -249,3 +363,79 @@ CHANGE LOG
 - Identified missing packet, freshness, tokenizer, cost, exclusion, and wording work.
 - Selected Repository Packet V1 as the smallest coherent next implementation step.
 - Created this local progress tracker. No application code was changed.
+
+2026-07-14 - RESULTS UI REDESIGN COMPLETED
+- Replaced the analytics-style active results layout with one repository-to-packet
+  comparison built directly from typed RepoScanReport accounting fields.
+- Added a read-only segmented context bar, packet-first copy/download actions,
+  compact deterministic repository status, and an expandable methodology section.
+- Added explicit empty, indeterminate scanning, failure, previous-report, incomplete
+  accounting, and unsupported-analysis behavior.
+- Removed absolute repository paths and diagnostic JSON export from the visible
+  results screen; backend report and packet generation remain unchanged.
+- Added dependency-free frontend model tests for accounting edge cases, status
+  wording, action feedback, accessibility labels, and prohibited claims.
+- Added semantic warning and error colors while preserving the black, white, and
+  purple product theme for neutral and packet-result information.
+- Visual validation passed at 1100 x 620, 620 x 800, and 1440 x 800: no horizontal
+  overflow, long names wrap safely, primary actions remain reachable, and the
+  methodology disclosure expands correctly.
+- Validation passed: 8 frontend model tests, TypeScript, frontend production build,
+  40 Rust tests, Rust formatting, native Tauri debug bundle, and git diff checks.
+
+2026-07-14 - CONTEXT VISUALIZATIONS COMPLETED
+- Added Recharts 3.9 as the only chart engine; Tremor's full component theme was
+  not installed, so the visuals continue to use Fixer's existing Tailwind tokens.
+- Added a largest-to-smallest SparkBarChart-style file-context distribution using
+  typed backend classification facts and repository-relative paths.
+- Added an exact top-five BarList companion and deterministic rank bucketing that
+  represents every eligible file when a repository exceeds 100 files.
+- Added a stacked readable-context composition bar inside Context details using
+  non-overlapping eligible, generated, lockfile, build, vendored, runtime, and
+  remaining token categories.
+- Added safe empty, malformed-composition, and absolute-path redaction behavior.
+- Kept the existing segmented repository-to-packet result as the primary visual;
+  the new distribution and composition views remain secondary details.
+- Lazy-loaded the Recharts distribution so the main application bundle remains
+  focused; production output is split into 255.95 kB main and 310.11 kB chart chunks.
+- Visual validation passed at 1100 x 620 and 620 x 800 with no horizontal overflow,
+  exact accessible labels, deterministic chart ordering, and responsive stacking.
+- Validation passed: 12 frontend model tests, TypeScript, frontend production build,
+  40 Rust tests, Rust formatting, native Tauri debug bundle, and git diff checks.
+
+2026-07-14 - BAR VISIBILITY POLISH COMPLETED
+- Restyled both context bars with thicker framed tracks, separated segments,
+  stronger semantic contrast, and clearer rectangular legend keys.
+- Moved the readable-context composition outside Context details so the bar remains
+  visible while the disclosure contains only accounting and methodology text.
+- The reduction bar now prints percentages inside sufficiently large segments;
+  the readable-context bar keeps tiny non-zero categories visibly represented.
+- Visual validation passed at 1100 x 620 and 620 x 800 with no horizontal overflow,
+  no browser warnings, and a text-only expanded Context details disclosure.
+- Validation passed: 12 frontend model tests, TypeScript, frontend production build,
+  40 Rust tests, Rust formatting, native Tauri debug bundle, and git diff checks.
+
+2026-07-14 - RESULTS READABILITY PASS COMPLETED
+- Increased secondary-text contrast across the active application theme.
+- Raised meaningful results-screen labels and supporting copy from 9-11 pixels
+  to 12-14 pixels, with stronger weights where labels identify data.
+- Increased both segmented-bar heights so in-bar percentages render at 12 pixels.
+- Active results content now has a verified 12-pixel minimum rendered text size;
+  normal supporting copy uses 12-14 pixels while primary metrics remain unchanged.
+- Visual validation passed at 1100 x 620 and 620 x 800 with no horizontal overflow
+  and no browser warnings or errors.
+- Added a readability regression test for muted contrast and undersized active copy.
+- Validation passed: 13 frontend tests, TypeScript, frontend production build,
+  40 Rust tests, Rust formatting, native Tauri debug bundle, and git diff checks.
+
+2026-07-14 - TRANSFORMATION ARROW ALIGNMENT COMPLETED
+- Removed the standalone arrow from the bottom-aligned three-column layout.
+- Added a centered connector aligned to the token-number row, with subtle lines
+  linking the source context to the resulting repository packet.
+- Preserved a compact downward-arrow treatment when the comparison stacks narrowly.
+- Desktop validation confirms the connector is centered on the number row instead
+  of floating between the numbers and their labels.
+- Narrow validation confirms a centered downward connector with no horizontal overflow.
+- Added a regression test that prevents restoring the old bottom padding placement.
+- Validation passed: 14 frontend tests, TypeScript, frontend production build,
+  native Tauri debug bundle, browser console checks, and git diff checks.

@@ -11,7 +11,19 @@ pub struct RepoScanReport {
     pub scores: Scores,
     pub totals: Totals,
     pub verification: VerificationSignals,
+    #[serde(default)]
+    pub package_scopes: Vec<PackageScopeFact>,
+    #[serde(default)]
+    pub entrypoints: Vec<EntrypointFact>,
+    #[serde(default)]
+    pub technologies: Vec<TechnologyFact>,
+    #[serde(default)]
+    pub analyzer_coverage: Vec<AnalyzerCoverage>,
+    #[serde(default)]
+    pub portability: PortabilitySignals,
     pub privacy: PrivacySignals,
+    #[serde(default)]
+    pub runtime_signals: Vec<FileFindingSignal>,
     pub repo_graph: RepoGraphSummary,
     pub languages: Vec<LanguageStat>,
     pub expensive_files: Vec<FileSignal>,
@@ -169,6 +181,73 @@ pub struct VerificationSignals {
     pub test_scripts: Vec<String>,
     pub typecheck_scripts: Vec<String>,
     pub lint_scripts: Vec<String>,
+    pub commands: Vec<VerificationCommand>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VerificationCommand {
+    pub category: String,
+    pub script_name: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub script_body: String,
+    pub manifest_path: String,
+    pub package_manager: Option<String>,
+    pub exact_command: Option<String>,
+    #[serde(default)]
+    pub package_scope_id: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PackageScopeFact {
+    pub id: String,
+    pub display_name: String,
+    pub package_name: Option<String>,
+    pub manifest_path: String,
+    pub directory: String,
+    pub ecosystem: String,
+    pub package_manager: Option<String>,
+    pub workspace_declared: bool,
+    pub declared_entry: Option<String>,
+    pub declared_entry_exists: Option<bool>,
+    pub dependency_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EntrypointFact {
+    pub path: String,
+    pub package_scope_id: String,
+    pub kind: String,
+    pub evidence_type: String,
+    pub evidence_source: String,
+    pub proof_level: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TechnologyFact {
+    pub package_scope_id: String,
+    pub identifier: String,
+    pub name: String,
+    pub declared_version: Option<String>,
+    pub details: Vec<String>,
+    pub evidence_sources: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalyzerCoverage {
+    pub analyzer_id: String,
+    pub analyzer_version: String,
+    pub capability: String,
+    pub status: String,
+    pub analyzed_file_count: usize,
+    pub analyzed_languages: Vec<String>,
+    pub excluded_languages: Vec<String>,
+    pub limitations: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -179,6 +258,32 @@ pub struct PrivacySignals {
     pub secret_candidate_files: Vec<String>,
     pub private_url_count: usize,
     pub findings: Vec<String>,
+    pub file_signals: Vec<FileFindingSignal>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileFindingSignal {
+    pub path: String,
+    pub category: String,
+    pub count: usize,
+    #[serde(default)]
+    pub context_role: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PortabilitySignals {
+    pub machine_specific_absolute_imports: usize,
+    pub file_signals: Vec<PortabilitySignal>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PortabilitySignal {
+    pub path: String,
+    pub category: String,
+    pub count: usize,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -189,11 +294,35 @@ pub struct RepoGraphSummary {
     pub external_imports: usize,
     pub resolved_imports: usize,
     pub unresolved_imports: usize,
+    pub unresolved_import_details: Vec<UnresolvedImportSignal>,
     pub circular_import_files: usize,
     pub max_fan_in: usize,
     pub max_fan_out: usize,
     pub sensitive_module_refs: usize,
     pub hub_files: Vec<GraphFileSignal>,
+    #[serde(default)]
+    pub analyzed_file_count: usize,
+    #[serde(default)]
+    pub static_module_references: usize,
+    #[serde(default)]
+    pub resolved_local_static_references: usize,
+    #[serde(default)]
+    pub external_package_static_references: usize,
+    #[serde(default)]
+    pub unresolved_local_static_references: usize,
+    #[serde(default)]
+    pub machine_specific_absolute_static_references: usize,
+    #[serde(default)]
+    pub other_static_references: usize,
+    #[serde(default)]
+    pub dynamic_imports: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnresolvedImportSignal {
+    pub source_path: String,
+    pub specifier: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

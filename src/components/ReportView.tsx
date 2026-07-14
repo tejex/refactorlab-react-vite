@@ -1,49 +1,79 @@
-import { useState } from "react";
-import { BreakdownDialog } from "./BreakdownDialog";
-import { CompactHeader } from "./CompactHeader";
-import { FooterActions } from "./FooterActions";
-import { HeroCostVerdict } from "./HeroCostVerdict";
-import { RiskSummaryRow } from "./RiskSummaryRow";
-import { tokenContextMathFromReport } from "./costCopy";
+import { lazy, Suspense } from "react";
 import type { RepoScanReport } from "../types";
+import { CompactHeader } from "./CompactHeader";
+import { ContextCompositionBar } from "./ContextCompositionBar";
+import { ContextMethodologyDisclosure } from "./ContextMethodologyDisclosure";
+import { ContextReductionHero } from "./HeroCostVerdict";
+import { RepositoryStatus } from "./RepositoryStatus";
+import {
+  actionsDisabled,
+  contextMetricsFromReport,
+  type ActionFeedback,
+  type PacketAction,
+} from "./resultsModel";
+
+const ContextDistributionPanel = lazy(() =>
+  import("./ContextDistributionPanel").then((module) => ({
+    default: module.ContextDistributionPanel,
+  })),
+);
 
 interface ReportViewProps {
   report: RepoScanReport;
-  exportMessage: string | null;
+  activeAction: PacketAction | null;
+  actionFeedback: ActionFeedback | null;
   onChooseAnother: () => void;
-  onExport: () => void;
+  onCopyPacket: () => void;
+  onDownloadPacket: () => void;
   onRescan: () => void;
 }
 
-export function ReportView({ exportMessage, onChooseAnother, onExport, onRescan, report }: ReportViewProps) {
-  const [breakdownOpen, setBreakdownOpen] = useState(false);
-  const math = tokenContextMathFromReport(report);
+export function ReportView({
+  actionFeedback,
+  activeAction,
+  onChooseAnother,
+  onCopyPacket,
+  onDownloadPacket,
+  onRescan,
+  report,
+}: ReportViewProps) {
+  const metrics = contextMetricsFromReport(report);
 
   return (
-    <section className="mx-auto grid h-screen w-[min(1040px,calc(100vw-32px))] content-center gap-2 p-2 max-[780px]:h-auto max-[780px]:content-start">
-      <CompactHeader report={report} onExport={onExport} onRescan={onRescan} />
+    <section className="h-screen overflow-y-auto px-4 py-3">
+      <div className="mx-auto grid w-full max-w-[1040px] gap-2.5">
+        <CompactHeader
+          busy={actionsDisabled(activeAction)}
+          report={report}
+          onChooseAnother={onChooseAnother}
+          onRescan={onRescan}
+        />
 
-      <HeroCostVerdict
-        aiEligibleRepositoryTokens={math.aiEligibleRepositoryTokens}
-        potentialInputTokenReductionPercent={math.potentialInputTokenReductionPercent}
-        potentiallyAvoidableContextTokens={math.potentiallyAvoidableContextTokens}
-        repositoryPacketTokens={math.repositoryPacketTokens}
-      />
+        <ContextReductionHero
+          actionFeedback={actionFeedback}
+          activeAction={activeAction}
+          metrics={metrics}
+          packetAvailable={Boolean(report.repoDigest)}
+          onCopyPacket={onCopyPacket}
+          onDownloadPacket={onDownloadPacket}
+        />
 
-      <RiskSummaryRow
-        aiCostRisk={report.scores.aiExpenseScore}
-        privacyRisk={report.scores.privacyRisk}
-        retryRisk={report.scores.retryRisk}
-      />
+        <Suspense
+          fallback={
+            <section className="grid min-h-[190px] place-items-center rounded-lg border bg-card text-sm text-muted-foreground" aria-live="polite">
+              Preparing file context distribution…
+            </section>
+          }
+        >
+          <ContextDistributionPanel report={report} />
+        </Suspense>
 
-      <FooterActions
-        exportMessage={exportMessage}
-        onChooseAnother={onChooseAnother}
-        onViewDetails={() => setBreakdownOpen(true)}
-      />
+        <RepositoryStatus report={report} />
 
+        <ContextCompositionBar report={report} />
 
-      <BreakdownDialog open={breakdownOpen} report={report} onOpenChange={setBreakdownOpen} />
+        <ContextMethodologyDisclosure metrics={metrics} report={report} />
+      </div>
     </section>
   );
 }

@@ -69,6 +69,7 @@
           "composer.json",
           "Gemfile"
         ],
+        "filenameStartsWithAny": ["tsconfig."],
         "extensionAny": ["proto", "graphql", "prisma"]
       }
     },
@@ -119,3 +120,4 @@
     }
   ]
 }
+

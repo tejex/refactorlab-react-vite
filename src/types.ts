@@ -29,6 +29,61 @@ export interface VerificationSignals {
   testScripts: string[];
   typecheckScripts: string[];
   lintScripts: string[];
+  commands: VerificationCommand[];
+}
+
+export interface VerificationCommand {
+  category: string;
+  scriptName: string;
+  scriptBody?: string;
+  manifestPath: string;
+  packageManager?: string | null;
+  exactCommand?: string | null;
+  packageScopeId: string;
+}
+
+export interface PackageScopeFact {
+  id: string;
+  displayName: string;
+  packageName?: string | null;
+  manifestPath: string;
+  directory: string;
+  ecosystem: string;
+  packageManager?: string | null;
+  workspaceDeclared: boolean;
+  declaredEntry?: string | null;
+  declaredEntryExists?: boolean | null;
+  dependencyIds: string[];
+}
+
+export interface EntrypointFact {
+  path: string;
+  packageScopeId: string;
+  kind: string;
+  evidenceType: string;
+  evidenceSource: string;
+  proofLevel: string;
+  reason: string;
+}
+
+export interface TechnologyFact {
+  packageScopeId: string;
+  identifier: string;
+  name: string;
+  declaredVersion?: string | null;
+  details: string[];
+  evidenceSources: string[];
+}
+
+export interface AnalyzerCoverage {
+  analyzerId: string;
+  analyzerVersion: string;
+  capability: string;
+  status: string;
+  analyzedFileCount: number;
+  analyzedLanguages: string[];
+  excludedLanguages: string[];
+  limitations: string[];
 }
 
 export interface PrivacySignals {
@@ -37,6 +92,25 @@ export interface PrivacySignals {
   secretCandidateFiles: string[];
   privateUrlCount: number;
   findings: string[];
+  fileSignals: FileFindingSignal[];
+}
+
+export interface FileFindingSignal {
+  path: string;
+  category: string;
+  count: number;
+  contextRole: string;
+}
+
+export interface PortabilitySignals {
+  machineSpecificAbsoluteImports: number;
+  fileSignals: PortabilitySignal[];
+}
+
+export interface PortabilitySignal {
+  path: string;
+  category: string;
+  count: number;
 }
 
 export interface RepoGraphSummary {
@@ -45,11 +119,25 @@ export interface RepoGraphSummary {
   externalImports: number;
   resolvedImports: number;
   unresolvedImports: number;
+  unresolvedImportDetails: UnresolvedImportSignal[];
   circularImportFiles: number;
   maxFanIn: number;
   maxFanOut: number;
   sensitiveModuleRefs: number;
   hubFiles: GraphFileSignal[];
+  analyzedFileCount: number;
+  staticModuleReferences: number;
+  resolvedLocalStaticReferences: number;
+  externalPackageStaticReferences: number;
+  unresolvedLocalStaticReferences: number;
+  machineSpecificAbsoluteStaticReferences: number;
+  otherStaticReferences: number;
+  dynamicImports: number;
+}
+
+export interface UnresolvedImportSignal {
+  sourcePath: string;
+  specifier: string;
 }
 
 export interface GraphFileSignal {
@@ -184,7 +272,13 @@ export interface RepoScanReport {
   scores: Scores;
   totals: Totals;
   verification: VerificationSignals;
+  packageScopes: PackageScopeFact[];
+  entrypoints: EntrypointFact[];
+  technologies: TechnologyFact[];
+  analyzerCoverage: AnalyzerCoverage[];
+  portability: PortabilitySignals;
   privacy: PrivacySignals;
+  runtimeSignals: FileFindingSignal[];
   repoGraph: RepoGraphSummary;
   languages: LanguageStat[];
   expensiveFiles: FileSignal[];

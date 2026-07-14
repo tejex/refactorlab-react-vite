@@ -15,11 +15,21 @@
     --secondary: 0 0% 10%;
     --secondary-foreground: 0 0% 92%;
     --muted: 0 0% 12%;
-    --muted-foreground: 0 0% 62%;
+    --muted-foreground: 0 0% 72%;
     --accent: 267 38% 18%;
     --accent-foreground: 0 0% 98%;
-    --destructive: 267 100% 78%;
-    --destructive-foreground: 0 0% 4%;
+    --destructive: 0 72% 56%;
+    --destructive-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 48 96% 89%;
+    --chart-packet: 267 100% 78%;
+    --chart-avoidable: 267 34% 38%;
+    --chart-generated: 258 39% 52%;
+    --chart-lockfile: 220 8% 56%;
+    --chart-build: 216 19% 43%;
+    --chart-vendored: 0 0% 34%;
+    --chart-runtime: 0 0% 82%;
+    --chart-other: 0 0% 48%;
     --border: 0 0% 18%;
     --input: 0 0% 18%;
     --ring: 267 100% 78%;
@@ -49,10 +59,43 @@
     font: inherit;
   }
 
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
   @media (max-width: 780px) {
     body {
       min-width: 0;
       overflow: auto;
     }
+  }
+}
+
+@keyframes scan-indeterminate {
+  from {
+    transform: translateX(-115%);
+  }
+
+  to {
+    transform: translateX(315%);
+  }
+}
+
+.scan-indeterminate {
+  animation: scan-indeterminate 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+
+  .scan-indeterminate {
+    transform: translateX(100%);
   }
 }

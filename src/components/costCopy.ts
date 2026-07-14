@@ -105,9 +105,8 @@ export function tokenContextMathFromReport(report: RepoScanReport): TokenContext
       aiEligibleRepositoryTokens: accounting.aiEligibleRepositoryTokens,
       repositoryPacketTokens: accounting.repositoryPacketTokens,
       potentiallyAvoidableContextTokens: accounting.potentiallyAvoidableContextTokens,
-      potentialInputTokenReductionPercent: conservativePercent(
+      potentialInputTokenReductionPercent: clampPercent(
         accounting.potentialInputTokenReductionPercent,
-        accounting.repositoryPacketTokens,
       ),
     };
   }
@@ -119,15 +118,5 @@ export function tokenContextMathFromReport(report: RepoScanReport): TokenContext
 }
 
 function clampPercent(value: number) {
-  return Math.max(0, Math.min(100, Math.floor(value)));
-}
-
-function conservativePercent(value: number, compactContextTokens: number) {
-  const percent = clampPercent(value);
-
-  if (compactContextTokens > 0) {
-    return Math.min(percent, 99);
-  }
-
-  return percent;
+  return Math.max(0, Math.min(100, Math.round(value)));
 }

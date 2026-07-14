@@ -9,8 +9,9 @@ Fixer does not call an AI model, upload source code, modify files, generate patc
 1. Open the desktop app.
 2. Choose a local project folder with the native folder picker.
 3. Fixer scans locally with Rust.
-4. The compact report shows AI coding cost scores and the top cost drivers.
-5. Rescan or export the report as JSON.
+4. The compact report shows unified token accounting and deterministic repository signals.
+5. Copy the final Markdown repository packet or download it as a standalone `.md` file.
+6. Rescan or export the separate diagnostic report as JSON.
 
 ## Stack
 

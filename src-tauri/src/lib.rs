@@ -15,6 +15,7 @@ use report::{
     RepoGraphSummary, RepoScanReport, Scores, TokenAccounting, Totals, VerificationSignals,
 };
 use serde::Serialize;
+use tauri_plugin_clipboard_manager::ClipboardExt;
 use token_counter::TokenizationMetadata;
 
 #[derive(Serialize)]
@@ -72,6 +73,28 @@ fn export_report(path: String, report: RepoScanReport) -> Result<(), String> {
     fs::write(path, json).map_err(|error| error.to_string())
 }
 
+/// Writes the exact final Markdown repository packet selected by the save dialog.
+#[tauri::command]
+fn export_packet(path: String, report: RepoScanReport) -> Result<(), String> {
+    fs::write(path, packet_markdown(&report)?).map_err(|error| error.to_string())
+}
+
+/// Copies the exact final Markdown repository packet to the native system clipboard.
+#[tauri::command]
+fn copy_packet(report: RepoScanReport, app: tauri::AppHandle) -> Result<(), String> {
+    app.clipboard()
+        .write_text(packet_markdown(&report)?)
+        .map_err(|error| error.to_string())
+}
+
+fn packet_markdown(report: &RepoScanReport) -> Result<String, String> {
+    report
+        .repo_digest
+        .as_ref()
+        .map(|_| render_repository_packet(report))
+        .ok_or_else(|| "Repository packet is not available for this scan.".to_string())
+}
+
 /// Wraps the report with formulas and repeated raw-fact sections for a more explainable export file.
 fn export_payload(report: &RepoScanReport) -> ExportedReport<'_> {
     ExportedReport {
@@ -118,7 +141,7 @@ fn export_formulas(report: &RepoScanReport) -> ExportFormulas {
             eligible_tokens, packet_tokens, avoidable_tokens
         ),
         potential_input_token_reduction: if report.token_accounting.is_some() {
-            "floor(potentiallyAvoidableContextTokens / aiEligibleRepositoryTokens * 100), capped below 100 for a nonempty packet"
+            "round(potentiallyAvoidableContextTokens / aiEligibleRepositoryTokens * 100) to the nearest whole percentage point, clamped to 0-100"
         } else {
             "Fallback: compressionOpportunityPercent estimates potential reduction versus broad repo context"
         },
@@ -154,15 +177,24 @@ fn token_accounting_values(report: &RepoScanReport) -> (usize, usize, usize, usi
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![scan_repo, export_report])
+        .invoke_handler(tauri::generate_handler![
+            scan_repo,
+            export_report,
+            export_packet,
+            copy_packet
+        ])
         .run(tauri::generate_context!())
         .expect("failed to run Fixer desktop app");
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{export_payload, report, token_counter};
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::{export_packet, export_payload, packet_markdown, report, scanner, token_counter};
     use report::{
         CostDriver, FileSignal, LanguageStat, PrivacySignals, RepoDigest, RepoDigestSection,
         RepoGraphSummary, RepoScanReport, Scores, TokenAccounting, Totals, VerificationSignals,
@@ -186,6 +218,89 @@ mod tests {
         assert_eq!(
             value["formulas"]["potentiallyAvoidableContext"],
             "100 AI-eligible repository tokens - 25 repository-packet tokens = 75 potentially avoidable context tokens"
+        );
+        assert_eq!(
+            value["formulas"]["potentialInputTokenReduction"],
+            "round(potentiallyAvoidableContextTokens / aiEligibleRepositoryTokens * 100) to the nearest whole percentage point, clamped to 0-100"
+        );
+    }
+
+    #[test]
+    fn packet_export_writes_the_exact_rendered_markdown_without_json_wrapping() {
+        let report = sample_report();
+        let expected = packet_markdown(&report).expect("packet should render");
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("test clock should be valid")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "fixer-packet-export-{}-{nonce}.md",
+            std::process::id()
+        ));
+
+        export_packet(path.display().to_string(), report).expect("packet should export");
+        let exported = fs::read_to_string(&path).expect("packet should be readable");
+        let _ = fs::remove_file(path);
+
+        assert_eq!(exported, expected);
+        assert!(exported.starts_with("# Repository Context\n"));
+        assert!(!exported.starts_with('{'));
+    }
+
+    #[test]
+    fn exported_packet_bytes_match_the_recorded_o200k_token_count() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("test clock should be valid")
+            .as_nanos();
+        let repo_path = std::env::temp_dir().join(format!(
+            "fixer-export-token-source-{}-{nonce}",
+            std::process::id()
+        ));
+        let export_path = std::env::temp_dir().join(format!(
+            "fixer-export-token-packet-{}-{nonce}.md",
+            std::process::id()
+        ));
+        fs::create_dir_all(repo_path.join("src")).expect("test repo should be created");
+        fs::write(
+            repo_path.join("package.json"),
+            r#"{"packageManager":"npm@10","scripts":{"build":"tsc -b"}}"#,
+        )
+        .expect("manifest should be written");
+        fs::write(
+            repo_path.join("src/main.ts"),
+            "export const greeting = 'hello';\n",
+        )
+        .expect("source should be written");
+
+        let report = scanner::scan_repo(repo_path.clone()).expect("scan should succeed");
+        let recorded_tokens = report
+            .repo_digest
+            .as_ref()
+            .expect("packet digest should exist")
+            .packet_tokens;
+        assert_eq!(report.tokenization.encoding.as_deref(), Some("o200k_base"));
+        export_packet(export_path.display().to_string(), report).expect("packet should export");
+
+        let exported_bytes = fs::read(&export_path).expect("exported packet should be readable");
+        let exported_markdown =
+            std::str::from_utf8(&exported_bytes).expect("exported packet should be valid UTF-8");
+        let counter = token_counter::default_token_counter();
+
+        assert_eq!(counter.count(exported_markdown), recorded_tokens);
+
+        let _ = fs::remove_file(export_path);
+        let _ = fs::remove_dir_all(repo_path);
+    }
+
+    #[test]
+    fn packet_actions_explain_when_an_older_report_has_no_digest() {
+        let mut report = sample_report();
+        report.repo_digest = None;
+
+        assert_eq!(
+            packet_markdown(&report),
+            Err("Repository packet is not available for this scan.".to_string())
         );
     }
 
@@ -214,7 +329,13 @@ mod tests {
                 files_over_32k_tokens: 0,
             },
             verification: VerificationSignals::default(),
+            package_scopes: vec![],
+            entrypoints: vec![],
+            technologies: vec![],
+            analyzer_coverage: vec![],
+            portability: Default::default(),
             privacy: PrivacySignals::default(),
+            runtime_signals: vec![],
             repo_graph: RepoGraphSummary::default(),
             languages: vec![LanguageStat {
                 language: "TypeScript".to_string(),

@@ -52,6 +52,7 @@ export interface FileContextPoint {
 
 export interface FileContextContributor {
   path: string;
+  displayName: string;
   language: string;
   tokens: number;
   sharePercent: number;
@@ -326,7 +327,7 @@ export function fileContextDistributionFromReport(
     ? bucketFileContextPoints(files, safeMaximumBars)
     : files.map<FileContextPoint>((file, index) => ({
         key: file.path,
-        label: file.path,
+        label: repositoryFileName(file.path),
         path: file.path,
         language: file.language,
         tokens: file.tokens,
@@ -337,6 +338,7 @@ export function fileContextDistributionFromReport(
       }));
   const topFiles = files.slice(0, 5).map<FileContextContributor>((file) => ({
     ...file,
+    displayName: repositoryFileName(file.path),
     sharePercent: sharePercent(file.tokens, totalTokens),
   }));
   const largestFileSharePercent = sharePercent(files[0]?.tokens ?? 0, totalTokens);
@@ -536,6 +538,11 @@ function isSafeRepositoryPath(path: string) {
 
 function normalizeRepositoryPath(path: string) {
   return path.replaceAll("\\", "/").replace(/^\.\//, "");
+}
+
+function repositoryFileName(path: string) {
+  const segments = normalizeRepositoryPath(path).split("/").filter(Boolean);
+  return segments.at(-1) ?? path;
 }
 
 function compareStableText(left: string, right: string) {

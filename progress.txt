@@ -439,3 +439,18 @@ CHANGE LOG
 - Added a regression test that prevents restoring the old bottom padding placement.
 - Validation passed: 14 frontend tests, TypeScript, frontend production build,
   native Tauri debug bundle, browser console checks, and git diff checks.
+
+2026-07-15 - FILE DISTRIBUTION SIMPLIFICATION COMPLETED
+- Replaced the dense per-file chart with a compact twenty-group CSS spark bar.
+- Every eligible file remains represented through deterministic rank grouping.
+- Largest-contributor rows now show filenames only instead of full directories,
+  while preserving exact token counts and stable underlying repository paths.
+- Removed lazy-loading complexity now that the visualization has no chart runtime.
+- Bar labels and hover text also use filenames only; full paths remain private
+  structured identifiers rather than visible UI copy.
+- Removed Recharts and 38 transitive packages; the separate 310.14 kB chart chunk
+  is gone and production now emits one 259.77 kB JavaScript bundle.
+- Visual validation passed at 1100 x 620 and 620 x 800 with no horizontal overflow,
+  no visible directories, and no browser warnings or errors.
+- Validation passed: 14 frontend tests, TypeScript, frontend production build,
+  40 Rust tests, Rust formatting, native Tauri debug bundle, and git diff checks.

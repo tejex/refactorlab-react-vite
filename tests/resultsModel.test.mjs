@@ -230,6 +230,11 @@ test("builds a deterministic largest-to-smallest file distribution", () => {
     distribution.topFiles.map((file) => file.path),
     distribution.points.slice(0, 5).map((point) => point.path),
   );
+  assert.deepEqual(
+    distribution.topFiles.map((file) => file.displayName),
+    ["dashboard.tsx", "report.tsx", "scanner.ts", "packet.ts", "context.ts"],
+  );
+  assert.equal(distribution.points[0].label, "dashboard.tsx");
   assert.match(distribution.accessibleLabel, /ordered largest to smallest/);
   assert.equal(distribution.accessibleLabel.includes("\/Users\/private"), false);
 });
@@ -319,7 +324,10 @@ test("active results UI uses disclosure, responsive text, and approved wording",
   );
   assert.match(files[4], /break-words/);
   assert.match(files[5], /File context distribution/);
-  assert.match(files[5], /ResponsiveContainer/);
+  assert.match(files[5], /maximumDistributionBars = 20/);
+  assert.equal(files[5].includes("recharts"), false);
+  assert.match(files[5], /\{file\.displayName\}/);
+  assert.equal(files[5].includes("Exact repository-relative paths"), false);
   assert.equal(source.includes("repodigest.sections"), false);
   assert.equal(source.includes("rendered markdown"), false);
 });

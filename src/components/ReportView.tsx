@@ -1,7 +1,7 @@
-import { lazy, Suspense } from "react";
 import type { RepoScanReport } from "../types";
 import { CompactHeader } from "./CompactHeader";
 import { ContextCompositionBar } from "./ContextCompositionBar";
+import { ContextDistributionPanel } from "./ContextDistributionPanel";
 import { ContextMethodologyDisclosure } from "./ContextMethodologyDisclosure";
 import { ContextReductionHero } from "./HeroCostVerdict";
 import { RepositoryStatus } from "./RepositoryStatus";
@@ -11,12 +11,6 @@ import {
   type ActionFeedback,
   type PacketAction,
 } from "./resultsModel";
-
-const ContextDistributionPanel = lazy(() =>
-  import("./ContextDistributionPanel").then((module) => ({
-    default: module.ContextDistributionPanel,
-  })),
-);
 
 interface ReportViewProps {
   report: RepoScanReport;
@@ -58,15 +52,7 @@ export function ReportView({
           onDownloadPacket={onDownloadPacket}
         />
 
-        <Suspense
-          fallback={
-            <section className="grid min-h-[190px] place-items-center rounded-lg border bg-card text-sm text-muted-foreground" aria-live="polite">
-              Preparing file context distribution…
-            </section>
-          }
-        >
-          <ContextDistributionPanel report={report} />
-        </Suspense>
+        <ContextDistributionPanel report={report} />
 
         <RepositoryStatus report={report} />
 

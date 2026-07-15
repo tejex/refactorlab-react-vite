@@ -1,5 +1,3 @@
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
-
 import { Card, CardContent } from "@/components/ui/card";
 import type { RepoScanReport } from "../types";
 import {
@@ -13,8 +11,13 @@ interface ContextDistributionPanelProps {
   report: RepoScanReport;
 }
 
+const maximumDistributionBars = 20;
+
 export function ContextDistributionPanel({ report }: ContextDistributionPanelProps) {
-  const distribution = fileContextDistributionFromReport(report);
+  const distribution = fileContextDistributionFromReport(
+    report,
+    maximumDistributionBars,
+  );
 
   return (
     <Card className="overflow-hidden shadow-sm">
@@ -27,13 +30,13 @@ export function ContextDistributionPanel({ report }: ContextDistributionPanelPro
               </h2>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                 {distribution.available
-                  ? `${distribution.totalFileCount.toLocaleString("en-US")} AI-eligible files · largest to smallest`
+                  ? `${distribution.totalFileCount.toLocaleString("en-US")} AI-eligible files · summarized largest to smallest`
                   : "Per-file context facts are unavailable for this report"}
               </p>
             </div>
             {distribution.available ? (
               <span className="rounded-full border bg-background/45 px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                Top 5 contain {formatVisualPercent(distribution.topFiveSharePercent)}
+                Top 5 · {formatVisualPercent(distribution.topFiveSharePercent)}
               </span>
             ) : null}
           </div>
@@ -43,12 +46,12 @@ export function ContextDistributionPanel({ report }: ContextDistributionPanelPro
               <FileContextSparkBars distribution={distribution} />
               <div className="mt-2 flex flex-wrap justify-between gap-x-4 gap-y-1 text-xs leading-relaxed text-muted-foreground">
                 <span>
-                  Largest file: {formatVisualPercent(distribution.largestFileSharePercent)} of eligible file tokens
+                  Largest file · {formatVisualPercent(distribution.largestFileSharePercent)}
                 </span>
                 <span>
                   {distribution.bucketed
-                    ? `All files grouped into ${distribution.displayedBarCount} deterministic rank buckets`
-                    : "One bar per file"}
+                    ? `${distribution.displayedBarCount} size groups · all files included`
+                    : `${distribution.displayedBarCount} files shown`}
                 </span>
               </div>
             </>
@@ -65,7 +68,7 @@ export function ContextDistributionPanel({ report }: ContextDistributionPanelPro
               Largest context contributors
             </h2>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              Exact repository-relative paths and token counts
+              Filenames and exact token counts
             </p>
           </div>
 
@@ -81,30 +84,29 @@ function FileContextSparkBars({
 }: {
   distribution: FileContextDistribution;
 }) {
+  const maximumTokens = Math.max(
+    ...distribution.points.map((point) => point.tokens),
+    1,
+  );
+
   return (
     <div
-      className="mt-4 h-[116px] w-full border-b border-border/70"
+      className="mt-4 rounded-md border bg-background/35 px-3 pb-2 pt-3"
       role="img"
       aria-label={distribution.accessibleLabel}
     >
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart
-          data={distribution.points}
-          margin={{ top: 3, right: 1, bottom: 0, left: 1 }}
-          barCategoryGap={distribution.displayedBarCount > 50 ? "12%" : "28%"}
-        >
-          <XAxis dataKey="key" hide />
-          <YAxis hide domain={[0, "dataMax"]} />
-          <Bar
-            dataKey="tokens"
-            fill="hsl(var(--primary))"
-            fillOpacity={0.88}
-            isAnimationActive={false}
-            maxBarSize={22}
-            radius={[2, 2, 0, 0]}
+      <div className="flex h-[88px] items-end gap-1.5 border-b border-border/70 px-0.5">
+        {distribution.points.map((point) => (
+          <span
+            className="min-w-0 flex-1 rounded-t-[3px] bg-primary/75"
+            key={point.key}
+            style={{
+              height: `${Math.max(5, (point.tokens / maximumTokens) * 100)}%`,
+            }}
+            title={`${point.label}: ${formatTokenCount(point.tokens)}${distribution.bucketed ? " average" : ""} tokens`}
           />
-        </BarChart>
-      </ResponsiveContainer>
+        ))}
+      </div>
     </div>
   );
 }
@@ -133,8 +135,8 @@ function ContextBarList({ files }: { files: FileContextContributor[] }) {
             aria-hidden="true"
           />
           <div className="relative flex min-w-0 items-center justify-between gap-3">
-            <span className="min-w-0 truncate text-xs text-foreground" title={file.path}>
-              {file.path}
+            <span className="min-w-0 truncate text-xs text-foreground" title={file.displayName}>
+              {file.displayName}
             </span>
             <span className="shrink-0 text-xs font-semibold text-primary">
               {formatTokenCount(file.tokens)}
